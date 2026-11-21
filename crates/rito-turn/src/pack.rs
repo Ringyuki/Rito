@@ -5,7 +5,7 @@
 use crate::frame::{Frame, Incoming, PageRef, Phase, Scene, Touch};
 use crate::hold::Point;
 use crate::leaves::LeafId;
-use crate::physics::Release;
+use crate::physics::{PaperMotion, Release};
 use crate::sheets::{Face, Sheet};
 
 /// How many numbers a frame's input is.
@@ -177,6 +177,57 @@ pub fn read_release(numbers: &[f64]) -> Release {
     }
 }
 
+/// How many numbers a paper turn's motion is: the leaf spring's stiffness
+/// and damping; the whole turn, the shortest turn (s) and the whole span
+/// (px) of a leaf at its own pace; the unhurried speed (lengths a second);
+/// how long a leaf sent back takes to stop (s); the least pull, how far
+/// back (px) and by what share a finger may come, and how fast (px/s) it
+/// may fling back, for a curled page to turn; a two-page leaf's projection
+/// (s), threshold, commit and pull-back speed (leaves a second).
+pub const PAPER_MOTION_NUMBERS: usize = 15;
+
+pub fn read_paper_motion(numbers: &[f64]) -> PaperMotion {
+    PaperMotion {
+        leaf_spring: crate::spring::Spring {
+            stiffness: numbers[0],
+            damping: numbers[1],
+        },
+        whole_turn: numbers[2],
+        shortest_turn: numbers[3],
+        whole_span: numbers[4],
+        unhurried: numbers[5],
+        stops_in: numbers[6],
+        least_pull: numbers[7],
+        came_back: numbers[8],
+        came_back_share: numbers[9],
+        flung_back: numbers[10],
+        leaf_projection: numbers[11],
+        leaf_threshold: numbers[12],
+        leaf_commit: numbers[13],
+        leaf_pull_back: numbers[14],
+    }
+}
+
+pub fn write_paper_motion(motion: &PaperMotion, out: &mut [f64]) {
+    out[..PAPER_MOTION_NUMBERS].copy_from_slice(&[
+        motion.leaf_spring.stiffness,
+        motion.leaf_spring.damping,
+        motion.whole_turn,
+        motion.shortest_turn,
+        motion.whole_span,
+        motion.unhurried,
+        motion.stops_in,
+        motion.least_pull,
+        motion.came_back,
+        motion.came_back_share,
+        motion.flung_back,
+        motion.leaf_projection,
+        motion.leaf_threshold,
+        motion.leaf_commit,
+        motion.leaf_pull_back,
+    ]);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,7 +282,13 @@ mod tests {
             (-100.0, 2000.0, -400.0),
             (-300.0, -100.0, -400.0),
         ] {
-            let mut settle = PaperSettle::new(from, velocity, to, 7);
+            let mut settle = PaperSettle::new(
+                &crate::physics::PaperMotion::default(),
+                from,
+                velocity,
+                to,
+                7,
+            );
             let mut numbers = [0.0; SETTLE_NUMBERS];
             for step in 0..30 {
                 settle.write(&mut numbers);

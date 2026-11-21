@@ -209,10 +209,13 @@ static void consume(void) {
                               href, sizeof(href), &resource, &error);
   (void)rito_release_artifact(1, 1, &error);
   (void)rito_dispose(1, &error);
-  uint32_t turn_layouts[7] = {0};
+  uint32_t turn_layouts[8] = {0};
   (void)rito_paper_turn_layouts(turn_layouts, &error);
   uint64_t turn = 0;
-  (void)rito_paper_turn_new(&turn, &error);
+  double turn_motion[RITO_PAPER_TURN_MOTION_NUMBERS] = {0};
+  (void)rito_paper_turn_default_motion(turn_motion, &error);
+  (void)rito_paper_turn_new(turn_motion, &turn, &error);
+  (void)rito_paper_turn_configure(turn, NULL, &error);
   double turn_frame[RITO_PAPER_TURN_FRAME_NUMBERS] = {0};
   double turn_begun[RITO_PAPER_TURN_BEGUN_NUMBERS] = {0};
   double turn_laid[RITO_PAPER_TURN_LAID_NUMBERS] = {0};
@@ -239,7 +242,7 @@ static void consume(void) {
   (void)rito_paper_turn_settle_step(turn, turn_settle, 0, 0, turn_pair,
                                     &error);
   (void)rito_paper_turn_travel(turn_pair, 400, 0, turn_pair, &error);
-  (void)rito_paper_turn_lands(turn_release, &turn_answer, &error);
+  (void)rito_paper_turn_lands(turn, turn_release, &turn_answer, &error);
   (void)rito_paper_turn_eye_height(400, 600, turn_pair, &error);
   (void)rito_paper_turn_free(turn, &error);
   double motion_physics[RITO_TURN_MOTION_PHYSICS_NUMBERS] = {180, 27, 50, 400, 0.15, 50, 0.55};

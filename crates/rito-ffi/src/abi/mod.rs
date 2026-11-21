@@ -20,12 +20,12 @@ pub use memory::{
 };
 
 pub use paper_turn::{
-    rito_paper_turn_begin, rito_paper_turn_begins, rito_paper_turn_eye_height,
-    rito_paper_turn_forget, rito_paper_turn_free, rito_paper_turn_lands, rito_paper_turn_lay,
-    rito_paper_turn_layouts, rito_paper_turn_new, rito_paper_turn_settle,
-    rito_paper_turn_settle_step, rito_paper_turn_sheet, rito_paper_turn_state,
-    rito_paper_turn_travel, RITO_PAPER_TURN_BEGUN_NUMBERS, RITO_PAPER_TURN_LAID_NUMBERS,
-    RITO_PAPER_TURN_STATE_NUMBERS,
+    rito_paper_turn_begin, rito_paper_turn_begins, rito_paper_turn_configure,
+    rito_paper_turn_default_motion, rito_paper_turn_eye_height, rito_paper_turn_forget,
+    rito_paper_turn_free, rito_paper_turn_lands, rito_paper_turn_lay, rito_paper_turn_layouts,
+    rito_paper_turn_new, rito_paper_turn_settle, rito_paper_turn_settle_step,
+    rito_paper_turn_sheet, rito_paper_turn_state, rito_paper_turn_travel,
+    RITO_PAPER_TURN_BEGUN_NUMBERS, RITO_PAPER_TURN_LAID_NUMBERS, RITO_PAPER_TURN_STATE_NUMBERS,
 };
 pub use turn_motion::{
     rito_turn_motion_cancel, rito_turn_motion_carry_on, rito_turn_motion_configure,

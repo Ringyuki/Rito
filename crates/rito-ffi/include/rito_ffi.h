@@ -606,11 +606,30 @@ void rito_buffer_free(rito_owned_buffer *buffer);
 #define RITO_PAPER_TURN_LAID_NUMBERS UINT32_C(11)
 /* state_out: frames painted, there (1/0), gone (1/0), a leaf aloft (1/0). */
 #define RITO_PAPER_TURN_STATE_NUMBERS UINT32_C(4)
+/*
+ * The numbers a model's turns move by: the leaf spring's stiffness and
+ * damping; how long a leaf at its own pace takes the whole way and the
+ * least nudge (s), and the span that is the whole way (px); the speed below
+ * which a leaf let go goes at its own pace (lengths a second); how long a
+ * leaf sent back takes to stop (s); how far a finger must pull for letting
+ * go to turn a curled page (px), how far back (px) and by what share of
+ * its farthest pull it may come, and how fast it may fling back (px/s); a
+ * two-page leaf's projection (s), threshold, commit and pull-back speed
+ * (leaves a second). rito_paper_turn_default_motion writes the defaults.
+ */
+#define RITO_PAPER_TURN_MOTION_NUMBERS UINT32_C(15)
 
-/* Writes the seven layout lengths above, in their order, into layouts_out. */
+/* Writes the eight layout lengths above, in their order, into layouts_out. */
 uint32_t rito_paper_turn_layouts(uint32_t *layouts_out,
                                  rito_owned_buffer *error_out);
-uint32_t rito_paper_turn_new(uint64_t *turn_out, rito_owned_buffer *error_out);
+/* motion: RITO_PAPER_TURN_MOTION_NUMBERS numbers, or null for the defaults. */
+uint32_t rito_paper_turn_new(const double *motion, uint64_t *turn_out,
+                             rito_owned_buffer *error_out);
+/* The numbers the model's turns move by from now on; null for the defaults. */
+uint32_t rito_paper_turn_configure(uint64_t turn, const double *motion,
+                                   rito_owned_buffer *error_out);
+uint32_t rito_paper_turn_default_motion(double *motion_out,
+                                        rito_owned_buffer *error_out);
 /* Idempotent: freeing an absent model succeeds. */
 uint32_t rito_paper_turn_free(uint64_t turn, rito_owned_buffer *error_out);
 /*
@@ -663,7 +682,9 @@ uint32_t rito_paper_turn_settle_step(uint64_t turn, double *settle,
 uint32_t rito_paper_turn_travel(const double *touch, double width,
                                 double spine, double *travel_out,
                                 rito_owned_buffer *error_out);
-uint32_t rito_paper_turn_lands(const double *release, uint32_t *lands_out,
+/* By the model's numbers. */
+uint32_t rito_paper_turn_lands(uint64_t turn, const double *release,
+                               uint32_t *lands_out,
                                rito_owned_buffer *error_out);
 uint32_t rito_paper_turn_eye_height(double width, double height,
                                     double *eye_out,

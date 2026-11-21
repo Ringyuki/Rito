@@ -7,6 +7,7 @@ use crate::hold::Point;
 use crate::leaf::{LeafGrab, LeafShape};
 use crate::leaves::{Leaf, LeafId};
 use crate::math::{max, min, or_one};
+use crate::physics::PaperMotion;
 use crate::swing::LeafTurn;
 
 /// The one page of a spread the curl is tried on, and the grid it is laid out by.
@@ -59,6 +60,7 @@ pub(super) fn sheet(shown: f64, curled: Curled, spread: i64) -> Leaf {
         speed: 0.0,
         let_go: None,
         flight: None,
+        motion: PaperMotion::default(),
         positions: vec![0.0; COLUMNS * ROWS * 3],
         normals: vec![0.0; COLUMNS * ROWS * 3],
     }

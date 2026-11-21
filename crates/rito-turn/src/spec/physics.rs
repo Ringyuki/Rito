@@ -6,7 +6,12 @@ use super::{assert_close, assert_is};
 use crate::frame::Touch;
 use crate::hold::Point;
 use crate::motion::{At, Spring, SpringSettle};
-use crate::physics::{grab_of, lands, travel, PaperSettle, Release};
+use crate::physics::{grab_of, travel, PaperMotion, PaperSettle, Release};
+
+/// Whether a release turns the page by the numbers paper turns with.
+fn lands(release: &Release) -> bool {
+    crate::physics::lands(release, &PaperMotion::default())
+}
 use crate::PaperModel;
 
 /// The width of a frame and where its pages are bound: one page a spread, and two.
@@ -208,7 +213,7 @@ mod whether_letting_a_page_curled_over_go_turns_it {
 
 /// A turn let go, as `settle` makes it with no frame painted: nothing else in the air, and its page nowhere yet.
 fn settle(from: f64, velocity: f64, to: f64) -> PaperSettle {
-    PaperSettle::new(from, velocity, to, 0)
+    PaperSettle::new(&PaperMotion::default(), from, velocity, to, 0)
 }
 
 fn step(settle: &mut PaperSettle, seconds: f64) -> At {
@@ -298,7 +303,7 @@ mod a_paper_turn_that_cuts_into_another {
     fn is_over_a_frame_after_its_page_is_where_it_takes_it_with_its_own_motion_still_on_its_way() {
         let mut painted = 0;
         let mut there = false;
-        let mut turn = PaperSettle::new(100.0, 0.0, 400.0, painted);
+        let mut turn = PaperSettle::new(&PaperMotion::default(), 100.0, 0.0, 400.0, painted);
         assert!(!turn.step(0.05, false, painted, there).done);
         // The page lies flat again, but no frame has shown it so since the turn was let go.
         there = true;
@@ -365,5 +370,60 @@ mod the_spring_as_a_motion {
             assert_close(at.x, stepped.0, 6);
             assert_close(at.velocity, stepped.1, 5);
         }
+    }
+}
+
+mod numbers_of_its_own {
+    use super::*;
+    use crate::pack::{read_paper_motion, write_paper_motion, PAPER_MOTION_NUMBERS};
+
+    fn curled_release(from: f64, to: f64) -> Release {
+        Release {
+            dx: (to - from) / 2.0,
+            from: 0.0,
+            velocity: 0.0,
+            width: 800.0,
+            forward: true,
+            touch: Some(Touch {
+                origin: Point { x: from, y: 300.0 },
+                position: Point { x: to, y: 300.0 },
+                farthest: None,
+            }),
+            spine: Some(0.0),
+        }
+    }
+
+    #[test]
+    fn a_paper_turn_moves_by_the_numbers_its_model_is_given() {
+        let mut model = PaperModel::new();
+        assert_eq!(model.motion(), PaperMotion::default());
+        // A 30 px pull turns the page by the numbers paper turns with...
+        assert!(model.lands(&curled_release(250.0, 220.0)));
+        let fussy = PaperMotion {
+            least_pull: 40.0,
+            whole_turn: 0.6,
+            ..PaperMotion::default()
+        };
+        model.set_motion(fussy);
+        // ...and not when a turn must be pulled 40.
+        assert!(!model.lands(&curled_release(250.0, 220.0)));
+        // A leaf at its own pace takes as long as it is told.
+        let mut settle = model.settle(0.0, 0.0, -800.0);
+        let mut at = model.settle_step(&mut settle, 0.38, 0.0);
+        assert!(!at.done && at.x > -800.0);
+        at = model.settle_step(&mut settle, 0.6, 0.0);
+        assert_eq!(at.x, -800.0);
+    }
+
+    #[test]
+    fn its_numbers_cross_in_one_layout() {
+        let motion = PaperMotion {
+            stops_in: 0.25,
+            leaf_commit: 2.0,
+            ..PaperMotion::default()
+        };
+        let mut numbers = [0.0; PAPER_MOTION_NUMBERS];
+        write_paper_motion(&motion, &mut numbers);
+        assert_eq!(read_paper_motion(&numbers), motion);
     }
 }

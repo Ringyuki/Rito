@@ -15,9 +15,10 @@ use std::{
 use rito_turn::frame::Touch;
 use rito_turn::hold::Point;
 use rito_turn::pack::{
-    read_release, write_sheet, FrameInput, FRAME_NUMBERS, RELEASE_NUMBERS, SHEET_NUMBERS,
+    read_paper_motion, read_release, write_paper_motion, write_sheet, FrameInput, FRAME_NUMBERS,
+    PAPER_MOTION_NUMBERS, RELEASE_NUMBERS, SHEET_NUMBERS,
 };
-use rito_turn::physics::{lands, travel, PaperSettle, SETTLE_NUMBERS};
+use rito_turn::physics::{travel, PaperMotion, PaperSettle, SETTLE_NUMBERS};
 use rito_turn::{eye_height, Begun, Forgotten, LeafId, PaperModel};
 
 use super::memory::{
@@ -40,7 +41,7 @@ pub const RITO_PAPER_TURN_LAID_NUMBERS: usize = 11;
 pub const RITO_PAPER_TURN_STATE_NUMBERS: usize = 4;
 /// The numbers of the layouts the paper turn's calls take, in the order
 /// `rito_paper_turn_layouts` writes them.
-const LAYOUTS: [u32; 7] = [
+const LAYOUTS: [u32; 8] = [
     FRAME_NUMBERS as u32,
     SHEET_NUMBERS as u32,
     RELEASE_NUMBERS as u32,
@@ -48,7 +49,18 @@ const LAYOUTS: [u32; 7] = [
     RITO_PAPER_TURN_BEGUN_NUMBERS as u32,
     RITO_PAPER_TURN_LAID_NUMBERS as u32,
     RITO_PAPER_TURN_STATE_NUMBERS as u32,
+    PAPER_MOTION_NUMBERS as u32,
 ];
+
+/// The motion `numbers` gives, or the one paper turns with by default when null.
+fn motion_of(numbers: *const f64) -> Result<PaperMotion, FfiError> {
+    if numbers.is_null() {
+        return Ok(PaperMotion::default());
+    }
+    Ok(read_paper_motion(&read_numbers::<PAPER_MOTION_NUMBERS>(
+        numbers, "motion",
+    )?))
+}
 
 #[derive(Default)]
 struct Turns {
@@ -109,14 +121,49 @@ pub extern "C" fn rito_paper_turn_layouts(
     })
 }
 
+/// A model moving by `motion` (`RITO_PAPER_TURN_MOTION_NUMBERS`), or by the
+/// numbers paper turns with when it is null.
 #[no_mangle]
-pub extern "C" fn rito_paper_turn_new(turn_out: *mut u64, error_out: *mut RitoOwnedBuffer) -> u32 {
+pub extern "C" fn rito_paper_turn_new(
+    motion: *const f64,
+    turn_out: *mut u64,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
     invoke(error_out, || {
+        let motion = motion_of(motion)?;
+        let mut model = PaperModel::new();
+        model.set_motion(motion);
         let mut turns = turns();
         turns.created += 1;
         let turn = turns.created;
-        turns.models.insert(turn, PaperModel::new());
+        turns.models.insert(turn, model);
         write_u64(turn_out, turn, "turn_out")
+    })
+}
+
+/// The numbers the model's turns move by from now on; null for the defaults.
+#[no_mangle]
+pub extern "C" fn rito_paper_turn_configure(
+    turn: u64,
+    motion: *const f64,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        let motion = motion_of(motion)?;
+        with(turn, |model| model.set_motion(motion))
+    })
+}
+
+/// Writes the numbers paper turns with by default.
+#[no_mangle]
+pub extern "C" fn rito_paper_turn_default_motion(
+    motion_out: *mut f64,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || {
+        let mut numbers = [0.0; PAPER_MOTION_NUMBERS];
+        write_paper_motion(&PaperMotion::default(), &mut numbers);
+        write_numbers(motion_out, &numbers, "motion_out")
     })
 }
 
@@ -375,15 +422,18 @@ pub extern "C" fn rito_paper_turn_travel(
     })
 }
 
+/// Whether a turn let go turns the page, by the model's numbers.
 #[no_mangle]
 pub extern "C" fn rito_paper_turn_lands(
+    turn: u64,
     release: *const f64,
     lands_out: *mut u32,
     error_out: *mut RitoOwnedBuffer,
 ) -> u32 {
     invoke(error_out, || {
         let release = read_release(&read_numbers::<RELEASE_NUMBERS>(release, "release")?);
-        write_u32(lands_out, u32::from(lands(&release)), "lands_out")
+        let lands = with(turn, |model| model.lands(&release))?;
+        write_u32(lands_out, u32::from(lands), "lands_out")
     })
 }
 

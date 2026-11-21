@@ -5,8 +5,11 @@
 use js_sys::Float32Array;
 use rito_turn::frame::Touch;
 use rito_turn::hold::Point;
-use rito_turn::pack::{read_release, write_sheet, FrameInput, SHEET_NUMBERS};
-use rito_turn::physics::{lands, travel, PaperSettle, SETTLE_NUMBERS};
+use rito_turn::pack::{
+    read_paper_motion, read_release, write_paper_motion, write_sheet, FrameInput,
+    PAPER_MOTION_NUMBERS, SHEET_NUMBERS,
+};
+use rito_turn::physics::{travel, PaperMotion, PaperSettle, SETTLE_NUMBERS};
 use rito_turn::{eye_height, Begun, Forgotten, Laid, PaperModel};
 use wasm_bindgen::prelude::*;
 
@@ -43,6 +46,18 @@ impl RitoPaperTurn {
             forgotten: Forgotten::default(),
             laid: None,
         }
+    }
+
+    /// The numbers the model's turns move by from now on
+    /// (`rito_turn::pack::read_paper_motion`).
+    pub fn configure(&mut self, motion: &[f64]) {
+        self.model.set_motion(read_paper_motion(motion));
+    }
+
+    /// Writes the numbers paper turns with by default into `out`.
+    #[wasm_bindgen(js_name = defaultMotion)]
+    pub fn default_motion(out: &mut [f64]) {
+        write_paper_motion(&PaperMotion::default(), out);
     }
 
     /// Reads a frame (`rito_turn::pack::FrameInput`). Answers 0 when no leaf
@@ -236,9 +251,10 @@ impl RitoPaperTurn {
         travel(&touch, width, spine)
     }
 
-    /// Whether a turn let go turns the page (`rito_turn::pack::read_release`).
-    pub fn lands(release: &[f64]) -> bool {
-        lands(&read_release(release))
+    /// Whether a turn let go turns the page (`rito_turn::pack::read_release`),
+    /// by the model's numbers.
+    pub fn lands(&self, release: &[f64]) -> bool {
+        self.model.lands(&read_release(release))
     }
 
     /// How high the eye is over a frame of this size.
@@ -247,13 +263,14 @@ impl RitoPaperTurn {
         eye_height(width, height)
     }
 
-    /// How many numbers each layout is: frame, sheet, release, settle.
+    /// How many numbers each layout is: frame, sheet, release, settle, motion.
     pub fn layouts() -> Vec<u32> {
         vec![
             rito_turn::pack::FRAME_NUMBERS as u32,
             SHEET_NUMBERS as u32,
             rito_turn::pack::RELEASE_NUMBERS as u32,
             SETTLE_NUMBERS as u32,
+            PAPER_MOTION_NUMBERS as u32,
         ]
     }
 }

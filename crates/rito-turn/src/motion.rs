@@ -4,21 +4,8 @@
 //! a host steps it exactly once a frame.
 
 use crate::math::{min, pow};
+use crate::physics::PaperMotion;
 pub use crate::spring::{spring_at, At, Spring, SpringSettle};
-
-/// A leaf let go on the move finishes on this spring: quick, and never past its target.
-const LEAF_SPRING: Spring = Spring {
-    stiffness: 260.0,
-    damping: 32.3,
-};
-/// How long a leaf turned by no finger takes, seconds: the whole way, and a nudge of it.
-const WHOLE_TURN: f64 = 0.38;
-const SHORTEST_TURN: f64 = 0.2;
-/// A turn let go slower than this many of its remaining lengths a second is
-/// finished at the leaf's own pace; a faster one keeps its momentum.
-const UNHURRIED: f64 = 1.2;
-/// How long a leaf sent back the way it came takes to stop, seconds.
-const STOPS_IN: f64 = 0.1;
 
 /// From `from` to `to` at the leaf's own pace: off at once, fastest early,
 /// slowing all the way in.
@@ -30,12 +17,12 @@ struct Unhurried {
 }
 
 impl Unhurried {
-    fn new(from: f64, to: f64) -> Self {
-        let share = min(1.0, (to - from).abs() / 800.0);
+    fn new(motion: &PaperMotion, from: f64, to: f64) -> Self {
+        let share = min(1.0, (to - from).abs() / motion.whole_span);
         Self {
             from,
             to,
-            duration: SHORTEST_TURN + (WHOLE_TURN - SHORTEST_TURN) * share,
+            duration: motion.shortest_turn + (motion.whole_turn - motion.shortest_turn) * share,
         }
     }
 
@@ -65,33 +52,35 @@ enum Way {
     },
     Unhurried(Unhurried),
     /// Sent back the way it came while still on the move: it slows evenly to
-    /// a stop in `STOPS_IN`, and comes back from there at its own pace.
+    /// a stop in `stops_in` seconds, and comes back from there at its own pace.
     TurnedRound {
         stop: f64,
         velocity: f64,
         back: Unhurried,
+        stops_in: f64,
     },
     Spring(SpringSettle),
 }
 
 impl Way {
-    fn of(from: f64, velocity: f64, to: f64) -> Self {
+    fn of(motion: &PaperMotion, from: f64, velocity: f64, to: f64) -> Self {
         let way = to - from;
         if way.abs() < 0.5 {
             return Self::There { to };
         }
-        if velocity * way < 0.0 && velocity.abs() > UNHURRIED * way.abs() {
-            let stop = from + (velocity * STOPS_IN) / 2.0;
+        if velocity * way < 0.0 && velocity.abs() > motion.unhurried * way.abs() {
+            let stop = from + (velocity * motion.stops_in) / 2.0;
             return Self::TurnedRound {
                 stop,
                 velocity,
-                back: Unhurried::new(stop, to),
+                back: Unhurried::new(motion, stop, to),
+                stops_in: motion.stops_in,
             };
         }
-        if velocity.abs() < UNHURRIED * way.abs() {
-            Self::Unhurried(Unhurried::new(from, to))
+        if velocity.abs() < motion.unhurried * way.abs() {
+            Self::Unhurried(Unhurried::new(motion, from, to))
         } else {
-            Self::Spring(SpringSettle::new(LEAF_SPRING, from, velocity, to))
+            Self::Spring(SpringSettle::new(motion.leaf_spring, from, velocity, to))
         }
     }
 
@@ -107,13 +96,14 @@ impl Way {
                 stop,
                 velocity,
                 back,
+                stops_in,
             } => {
-                if seconds >= STOPS_IN {
-                    return back.at(seconds - STOPS_IN);
+                if seconds >= *stops_in {
+                    return back.at(seconds - stops_in);
                 }
-                let slowed = 1.0 - seconds / STOPS_IN;
+                let slowed = 1.0 - seconds / stops_in;
                 At {
-                    x: stop - (velocity * STOPS_IN * slowed * slowed) / 2.0,
+                    x: stop - (velocity * stops_in * slowed * slowed) / 2.0,
                     velocity: velocity * slowed,
                     done: false,
                 }
@@ -134,9 +124,9 @@ pub struct LeafMotion {
 }
 
 impl LeafMotion {
-    pub fn new(from: f64, velocity: f64, to: f64) -> Self {
+    pub fn new(motion: &PaperMotion, from: f64, velocity: f64, to: f64) -> Self {
         Self {
-            way: Way::of(from, velocity, to),
+            way: Way::of(motion, from, velocity, to),
             to,
             landed: false,
         }
@@ -168,10 +158,10 @@ pub struct Alone {
 }
 
 impl Alone {
-    pub fn new(width: f64, from: f64, speed: f64, to: f64) -> Self {
+    pub fn new(motion: &PaperMotion, width: f64, from: f64, speed: f64, to: f64) -> Self {
         Self {
             width,
-            motion: LeafMotion::new(-from * width, -speed * width, -to * width),
+            motion: LeafMotion::new(motion, -from * width, -speed * width, -to * width),
         }
     }
 
@@ -206,9 +196,17 @@ impl LeafMotion {
                 stop,
                 velocity,
                 back,
+                stops_in,
             } => {
                 out[0] = 2.0;
-                out[1..6].copy_from_slice(&[stop, velocity, back.from, back.to, back.duration]);
+                out[1..7].copy_from_slice(&[
+                    stop,
+                    velocity,
+                    back.from,
+                    back.to,
+                    back.duration,
+                    stops_in,
+                ]);
             }
             Way::Spring(spring) => {
                 out[0] = 3.0;
@@ -240,6 +238,7 @@ impl LeafMotion {
                 stop: numbers[1],
                 velocity: numbers[2],
                 back: unhurried(3),
+                stops_in: numbers[6],
             },
             _ => Way::Spring(SpringSettle {
                 config: Spring {

@@ -5,6 +5,7 @@ use crate::hold::{Hold, Point};
 use crate::leaf::{LeafGrab, LeafShape};
 use crate::math::{clamp, max, min};
 use crate::motion::Alone;
+use crate::physics::PaperMotion;
 
 /// A leaf's stable name, by which the host keeps the pages it shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -55,6 +56,8 @@ pub struct Leaf {
     pub(crate) speed: f64,
     pub(crate) let_go: Option<LetGo>,
     pub(crate) flight: Option<Flight>,
+    /// The numbers it moves by: its model's when it was first seen.
+    pub(crate) motion: PaperMotion,
     pub(crate) positions: Vec<f32>,
     pub(crate) normals: Vec<f32>,
 }
@@ -151,7 +154,7 @@ pub(crate) fn send_off(leaf: &mut Leaf, to: f64, width: f64) {
     leaf.let_go = None;
     let from = leaf.shown;
     leaf.flight = Some(Flight {
-        motion: Alone::new(width, from, leaf.speed, to),
+        motion: Alone::new(&leaf.motion, width, from, leaf.speed, to),
         elapsed: 0.0,
         to,
         from,

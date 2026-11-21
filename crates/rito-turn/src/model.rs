@@ -18,7 +18,7 @@ use crate::leaves::{leave_alone, place_in_book, Leaf, LeafId};
 use crate::math::clamp;
 use crate::mesh::grid_for;
 use crate::motion::At;
-use crate::physics::PaperSettle;
+use crate::physics::{lands, PaperMotion, PaperSettle, Release};
 use crate::sheets::{sheets, Flat, Sheet};
 use crate::swing::{alone_width, grab_for, leaf_turn, wanted_of, LeafTurn};
 
@@ -89,6 +89,8 @@ pub struct PaperModel {
     /// Where the pages of the frame last laid out are bound.
     spine: f64,
     pending: Option<Pending>,
+    /// The numbers its turns move by.
+    motion: PaperMotion,
 }
 
 impl Default for PaperModel {
@@ -109,7 +111,24 @@ impl PaperModel {
             flat: None,
             spine: 0.0,
             pending: None,
+            motion: PaperMotion::default(),
         }
+    }
+
+    /// The numbers its turns move by.
+    pub fn motion(&self) -> PaperMotion {
+        self.motion
+    }
+
+    /// The numbers turns move by from now on: a leaf already in the air
+    /// keeps the ones it was first seen with.
+    pub fn set_motion(&mut self, motion: PaperMotion) {
+        self.motion = motion;
+    }
+
+    /// Whether a turn let go turns the page, by its numbers.
+    pub fn lands(&self, release: &Release) -> bool {
+        lands(release, &self.motion)
     }
 
     /// Reads a frame at `now` (ms): `current` is the page shown, `incoming`
@@ -262,7 +281,7 @@ impl PaperModel {
 
     /// How a turn nothing holds goes from `from` at `velocity` to `to`.
     pub fn settle(&self, from: f64, velocity: f64, to: f64) -> PaperSettle {
-        PaperSettle::new(from, velocity, to, self.painted)
+        PaperSettle::new(&self.motion, from, velocity, to, self.painted)
     }
 
     /// Steps `settle` to `seconds` after it began, at `now` (ms): once a frame.
@@ -344,6 +363,7 @@ impl PaperModel {
             speed: 0.0,
             let_go: None,
             flight: None,
+            motion: self.motion,
             positions: vec![0.0; columns * rows * 3],
             normals: vec![0.0; columns * rows * 3],
         }
