@@ -386,15 +386,16 @@ impl TurnMotion {
         lands
     }
 
-    /// Sends a turn that is held or going by itself back to where it
-    /// started (also one that arrived but could not land); true when there
-    /// was one. A finger taken away leaves it going as fast as it carried
-    /// it; a turn already going back goes on as it was.
+    /// Sends a turn back to where it started: one held, one going by itself,
+    /// or one that arrived but could not land, at rest on its neighbour.
+    /// True when there was one. A finger taken away leaves it going as fast
+    /// as it carried it; a turn already going back goes on as it was.
     pub fn cancel(&mut self) -> bool {
         match self.phase {
             TurnPhase::Dragging => self.velocity = self.finger_velocity(),
             TurnPhase::Settling if self.target == 0.0 => return true,
             TurnPhase::Settling => {}
+            TurnPhase::Idle if self.offset != 0.0 => {}
             TurnPhase::Idle | TurnPhase::Finishing => return false,
         }
         self.settle_to(0.0);

@@ -415,6 +415,17 @@ fn a_cancelled_turn_goes_back_and_one_going_back_goes_on_as_it_was() {
 }
 
 #[test]
+fn a_turn_that_arrived_but_could_not_land_goes_back_from_its_neighbour() {
+    let mut motion = motion();
+    motion.turn(true, None);
+    settle(&mut motion);
+    assert_eq!((motion.phase(), motion.offset()), (TurnPhase::Idle, -400.0));
+    assert!(motion.cancel());
+    assert_eq!(settle(&mut motion).last().copied(), Some(0.0));
+    assert_eq!(motion.offset(), 0.0);
+}
+
+#[test]
 fn the_rules_numbers_are_the_ones_both_readers_turned_pages_with() {
     let physics = TurnPhysics::default();
     assert_eq!(physics.spring, TurnPhysics::STANDARD);
