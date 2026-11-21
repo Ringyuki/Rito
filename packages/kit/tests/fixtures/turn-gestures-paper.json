@@ -2850,6 +2850,193 @@
       "ends": ["committed", "committed"]
     },
     {
+      "name": "rest-then-nudge",
+      "frame": 16,
+      "until": 1000,
+      "touches": [
+        ["down", 0, 250, 300],
+        ["move", 30, 244, 300],
+        ["move", 60, 240, 300],
+        ["up", 70, 240, 300]
+      ],
+      "frames": [
+        null,
+        {
+          "dx": -3,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -3,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -5,
+          "phase": "held",
+          "incoming": "next",
+          "velocity": 0
+        },
+        {
+          "dx": -5.572444444444445,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": -32.66666666666667
+        },
+        {
+          "dx": -6.045333333333334,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": -26.444444444444446
+        },
+        {
+          "dx": -6.418666666666667,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": -20.222222222222225
+        },
+        {
+          "dx": -6.692444444444445,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": -14.000000000000002
+        },
+        {
+          "dx": -6.866666666666667,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": -7.777777777777781
+        },
+        {
+          "dx": -6.941333333333334,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": -1.5555555555555571
+        },
+        {
+          "dx": -6.617338904400995,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 37.37194016286894
+        },
+        {
+          "dx": -5.925607195794005,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 47.37185568851584
+        },
+        {
+          "dx": -5.135257542320405,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 50.7202930062322
+        },
+        {
+          "dx": -4.31953473034826,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 50.832320338448405
+        },
+        {
+          "dx": -3.5194867087456747,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 48.890297401220835
+        },
+        {
+          "dx": -2.7628536095374807,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 45.47681203943502
+        },
+        {
+          "dx": -2.07024188910606,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 40.93208723869869
+        },
+        {
+          "dx": -1.4578740715073053,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 35.476348187218136
+        },
+        {
+          "dx": -0.939035261872327,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 29.262429029393658
+        },
+        {
+          "dx": -0.5249203399148605,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 22.401883516490486
+        },
+        {
+          "dx": -0.2251692340557323,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 14.979312901922041
+        },
+        {
+          "dx": -0.04822485026006085,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 7.060836908603743
+        },
+        {
+          "dx": 0,
+          "phase": "returning",
+          "incoming": "next",
+          "velocity": 0
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "starts": ["forward"],
+      "ends": ["cancelled"]
+    },
+    {
       "name": "key-next",
       "frame": 16,
       "until": 1000,

@@ -356,9 +356,10 @@ final class RitoPageTurnController extends ChangeNotifier {
 
   /// A finger came down on the page at [position], in the coordinates the
   /// turn is painted in ([RitoPageTurnView]'s own), and has moved far
-  /// enough to mean a drag: where it came down is where it took hold. On a
-  /// turn already on screen it cuts into it, and takes the page once that
-  /// turn is over. [at] is when (a pointer event's `timeStamp`); left out,
+  /// enough to mean a drag: where and when it came down is where and when
+  /// it took hold, and its speed is measured from there. On a turn already
+  /// on screen it cuts into it, and takes the page once that turn is over.
+  /// [at] is when it came down (the down event's `timeStamp`); left out,
   /// the controller's own clock tells, for this and every later sample.
   void dragStart(Offset position, {Duration? at}) {
     _dragOrigin = position;

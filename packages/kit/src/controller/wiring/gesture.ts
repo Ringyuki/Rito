@@ -104,7 +104,7 @@ function handleTouchStart(context: TouchHandlerContext, event: TouchEvent): void
   const selectionInput = wasAnimating ? null : (context.selectionNavigation?.claim() ?? null);
   if (!wasAnimating && context.selectionNavigation && !selectionInput) return;
   state.activeTouchId = touch.identifier;
-  state.startTouch = { x: touch.clientX, y: touch.clientY };
+  state.startTouch = { x: touch.clientX, y: touch.clientY, at: event.timeStamp };
   state.selectionStart = touch;
   state.selectionInput = selectionInput;
   state.wasAnimating = wasAnimating;
@@ -146,7 +146,7 @@ function handleWaitingMove(context: TouchHandlerContext, event: TouchEvent, touc
     // the way pages turn.
     clearTouchTimer(state);
     state.phase = 'sliding';
-    state.startTouch = { x: touch.clientX, y: touch.clientY };
+    state.startTouch = { x: touch.clientX, y: touch.clientY, at: event.timeStamp };
     return;
   }
   beginGesture(context, gestureSample(context, touch), event.timeStamp);
@@ -182,7 +182,12 @@ function beginGesture(
   state.phase = 'gesture';
   modeManager.setMode('gesture');
   deps.claimForFinger();
-  beginFingerTurn(context, sample.dx, timestamp, sample.touch);
+  beginFingerTurn(context, {
+    travel: sample.dx,
+    tookHold: state.startTouch?.at ?? timestamp,
+    timestamp,
+    touch: sample.touch,
+  });
 }
 
 function handleGestureMove(context: TouchHandlerContext, event: TouchEvent, touch: Touch): void {

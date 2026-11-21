@@ -134,6 +134,19 @@ const SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
+    // Rests on the page, then nudges it and lifts: its speed is measured
+    // from when it came down, so the nudge is no flick.
+    name: 'rest-then-nudge',
+    frame: 16,
+    until: 1000,
+    touches: [
+      ['down', 0, 250, 300],
+      ['move', 30, 244, 300],
+      ['move', 60, 240, 300],
+      ['up', 70, 240, 300],
+    ],
+  },
+  {
     name: 'key-next',
     frame: 16,
     until: 1000,

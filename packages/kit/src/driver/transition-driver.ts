@@ -46,7 +46,11 @@ export interface TransitionDriver {
 
   /** What the host knows of the pages beside the one shown, asked at every call. */
   pagesFrom(pages: () => TurnPages): void;
-  /** A finger came down at `origin` and moved far enough, the way pages turn, to mean a drag. */
+  /**
+   * A finger came down at `origin` at `timestamp` and has since moved far
+   * enough, the way pages turn, to mean a drag: its speed is measured from
+   * where and when it came down.
+   */
   fingerDown(origin: TransitionPoint, timestamp: number): void;
   /** The finger is at `position`, having carried the turn `travel` px (the physics read it). */
   fingerMove(position: TransitionPoint, travel: number, timestamp: number): void;

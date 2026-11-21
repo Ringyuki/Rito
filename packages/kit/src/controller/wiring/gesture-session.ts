@@ -11,20 +11,26 @@ export interface GestureSessionContext {
   turningByFinger: boolean;
 }
 
+/** A finger that has gone far enough the way pages turn to mean a drag. */
+export interface FingerTurnStart {
+  /** How far it has carried the turn, px. */
+  readonly travel: number;
+  /** When it took hold, ms: when it came down, or went across from where it is followed. */
+  readonly tookHold: number;
+  /** Now, ms. */
+  readonly timestamp: number;
+  readonly touch: TransitionTouch;
+}
+
 /**
  * A finger went far enough the way pages turn to mean a drag: the engine is
- * told where it took hold and where it is. A turn on screen is the engine's
- * to cut into; a page not yet painted is the engine's to wait for.
+ * told where and when it took hold, and where it is. A turn on screen is
+ * the engine's to cut into; a page not yet painted is the engine's to wait for.
  */
-export function beginFingerTurn(
-  context: GestureSessionContext,
-  travel: number,
-  timestamp: number,
-  touch: TransitionTouch,
-): void {
+export function beginFingerTurn(context: GestureSessionContext, start: FingerTurnStart): void {
   context.turningByFinger = true;
-  context.deps.td.fingerDown(touch.origin, timestamp);
-  context.deps.td.fingerMove(touch.position, travel, timestamp);
+  context.deps.td.fingerDown(start.touch.origin, start.tookHold);
+  context.deps.td.fingerMove(start.touch.position, start.travel, start.timestamp);
   context.deps.frameDriver.scheduleComposite();
 }
 

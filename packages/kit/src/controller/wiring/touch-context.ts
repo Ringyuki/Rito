@@ -23,7 +23,8 @@ export interface TouchState {
   /** The whole-book layout held back while `timer` waits to tell a long press from a tap. */
   bookHold: (() => void) | null;
   activeTouchId: number | null;
-  startTouch: { x: number; y: number } | null;
+  /** Where the finger took hold, and when (ms): where it came down, or where it went across from. */
+  startTouch: { x: number; y: number; at: number } | null;
   selectionStart: Touch | null;
   selectionInput: PrimarySelectionInputIntent | null;
   selectionDrag: PrimarySelectionDragSession | null;
