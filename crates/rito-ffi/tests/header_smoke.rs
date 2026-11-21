@@ -285,6 +285,7 @@ static void consume(void) {
   (void)rito_turn_controller_pages(controller, controller_pages, &error);
   (void)rito_turn_controller_overdue(controller, controller_pages, &error);
   (void)rito_turn_controller_interrupt(controller, &error);
+  (void)rito_turn_controller_settle_now(controller, &error);
   (void)rito_turn_controller_step(controller, controller_pages, 0.016, NULL, &error);
   (void)rito_turn_controller_answer_begin(controller, NULL, &error);
   (void)rito_turn_controller_answer_lands(controller, -1, &error);

@@ -55,8 +55,8 @@ pub use abi::{
     rito_turn_controller_finger_move, rito_turn_controller_finger_up, rito_turn_controller_free,
     rito_turn_controller_interrupt, rito_turn_controller_landed, rito_turn_controller_layouts,
     rito_turn_controller_new, rito_turn_controller_overdue, rito_turn_controller_pages,
-    rito_turn_controller_play_jump, rito_turn_controller_state, rito_turn_controller_step,
-    rito_turn_controller_take_action,
+    rito_turn_controller_play_jump, rito_turn_controller_settle_now, rito_turn_controller_state,
+    rito_turn_controller_step, rito_turn_controller_take_action,
 };
 pub use abi::{
     rito_turn_motion_cancel, rito_turn_motion_carry_on, rito_turn_motion_configure,

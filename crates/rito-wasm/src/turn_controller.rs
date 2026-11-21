@@ -97,6 +97,12 @@ impl RitoTurnController {
         self.controller.interrupt();
     }
 
+    /// Something asked of the reader directly ends what is on screen at once.
+    #[wasm_bindgen(js_name = settleNow)]
+    pub fn settle_now(&mut self) {
+        self.controller.settle_now();
+    }
+
     /// `host_at`: x, velocity, done while the host's physics carry the motion; else empty.
     pub fn step(&mut self, pages: &[f64], seconds: f64, host_at: &[f64]) {
         let host = (host_at.len() >= TURN_AT_NUMBERS).then(|| read_turn_at(host_at));

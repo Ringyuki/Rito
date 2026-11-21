@@ -287,6 +287,16 @@ pub extern "C" fn rito_turn_controller_interrupt(
     invoke(error_out, || with(controller, TurnController::interrupt))
 }
 
+/// Something the reader is asked directly ends what is on screen at once,
+/// where its turn was going.
+#[no_mangle]
+pub extern "C" fn rito_turn_controller_settle_now(
+    controller: u64,
+    error_out: *mut RitoOwnedBuffer,
+) -> u32 {
+    invoke(error_out, || with(controller, TurnController::settle_now))
+}
+
 /// Moves what is on screen on by `seconds`; `host_at` is where the host's
 /// physics' motion is then (x, velocity, done) while they carry it, from
 /// its first step, else null.

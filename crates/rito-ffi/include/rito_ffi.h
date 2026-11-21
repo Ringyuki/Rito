@@ -856,6 +856,10 @@ uint32_t rito_turn_controller_overdue(uint64_t controller,
                                       rito_owned_buffer *error_out);
 uint32_t rito_turn_controller_interrupt(uint64_t controller,
                                         rito_owned_buffer *error_out);
+/* A selection or a position asked of the reader: what is on screen ends at
+ * once where its turn was going, and nothing carries on. */
+uint32_t rito_turn_controller_settle_now(uint64_t controller,
+                                         rito_owned_buffer *error_out);
 /* host_at: x, velocity, done while the host's physics carry the motion. */
 uint32_t rito_turn_controller_step(uint64_t controller,
                                    const double *pages_now, double seconds,

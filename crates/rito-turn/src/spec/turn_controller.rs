@@ -436,3 +436,25 @@ fn a_turn_no_finger_made_says_of_no_finger() {
     host(&mut turns, true);
     assert!(turns.frame().expect("a turn").touch.is_none());
 }
+
+#[test]
+fn something_asked_directly_ends_the_turn_where_it_was_going_and_stops_it() {
+    let mut turns = controller();
+    turns.command(ready(), Direction::Next);
+    host(&mut turns, true);
+    frames(&mut turns, 3);
+    turns.settle_now();
+    assert_eq!(
+        host(&mut turns, true),
+        [TurnAction::Ended {
+            direction: Direction::Next,
+            outcome: TurnOutcome::Committed,
+            carries: false,
+        }]
+    );
+    assert!(!turns.moving());
+
+    drag(&mut turns, 200.0, 2000.0);
+    turns.settle_now();
+    assert_eq!(ends(&host(&mut turns, true)), [TurnOutcome::Cancelled]);
+}

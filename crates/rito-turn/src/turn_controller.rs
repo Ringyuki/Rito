@@ -670,6 +670,30 @@ impl TurnController {
         self.end(TurnOutcome::Interrupted, false);
     }
 
+    /// Something the reader is asked directly (a selection, a position)
+    /// ends what is on screen at once, where its turn was going: a turn
+    /// decided and landed lands, any other goes back, and nothing carries
+    /// on; nothing waiting begins.
+    pub fn settle_now(&mut self) {
+        self.asked = None;
+        self.pending.clear();
+        self.awaiting = None;
+        self.pulling = false;
+        self.finger.state = FingerState::Away;
+        let committed = self
+            .open
+            .is_some_and(|open| open.committing && open.landed == Some(true));
+        self.motion.reset();
+        self.end(
+            if committed {
+                TurnOutcome::Committed
+            } else {
+                TurnOutcome::Cancelled
+            },
+            false,
+        );
+    }
+
     /// Moves what is on screen on by `seconds`. While the host's physics
     /// carry the motion, `host` is where it is then, from its first step.
     pub fn step(&mut self, pages: TurnPages, seconds: f64, host: Option<At>) {
