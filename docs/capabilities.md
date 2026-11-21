@@ -26,6 +26,10 @@ projected into typed tables the layout crates read:
 
 - the full selector grammar Stylo supports, specificity, inheritance and
   inline styles
+- the static default author stylesheet set: persistent sheets plus the first
+  preferred title, or a `default-style` pragma; matching linked and embedded
+  sheets retain document order, while inactive alternates and disabled links
+  do not participate in the cascade
 - `@font-face` with TTF or OTF sources; `@media` queries and `vw`/`vh`
   evaluated against one page's content box, at 1x and the light colour
   scheme

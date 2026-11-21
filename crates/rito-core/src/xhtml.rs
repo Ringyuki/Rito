@@ -70,15 +70,25 @@ pub(crate) enum AuthorStylesheetSource {
     External {
         source_node_id: NodeId,
         href: String,
+        enabled: bool,
         selection_issues: Vec<String>,
         media_environment_issues: Vec<String>,
     },
     Embedded {
         source_node_id: NodeId,
         css: String,
+        enabled: bool,
         selection_issues: Vec<String>,
         media_environment_issues: Vec<String>,
     },
+}
+
+impl AuthorStylesheetSource {
+    pub(crate) fn is_enabled(&self) -> bool {
+        match self {
+            Self::External { enabled, .. } | Self::Embedded { enabled, .. } => *enabled,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
