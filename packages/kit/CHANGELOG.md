@@ -1,5 +1,21 @@
 # @ritojs/kit
 
+## 4.3.0
+
+### Minor Changes
+
+- 8184de4: A page turn's motion is the engine's, one implementation for every host: `loadTurnMotion()` (and `loadedTurnMotion()` once a reader has opened) makes a `TurnMotion` — the finger while it holds the turn, the release that decides it, the spring that carries it to rest, a pull against the end of the book, and a turn cut into by another — whose built-in rules take the numbers a host sets, and where physics of the host's own may answer any decision instead. The kit's turns move by it, its `TransitionPhysics` hooks answering where they are given; the turns' paths are the ones they were to within a millionth of a pixel. The paper turn moves by numbers it is given: `PaperTurnModel.motion` and `configure`, and `createPaperTurn({ motion })` (`PaperTurnMotion`), the engine's defaults in their absence.
+- bc65321: When a page turn begins, lands and ends, and what a finger, a key or a jump does to a turn on screen, is decided by the engine, one model for every host: `loadedTurnController()` makes a `TurnController` that a host tells what happens and whose actions it carries out. The kit's turns are carried out this way. A turn now lands the reader on its spread when it is decided — a key's as it begins, a finger's when it is let go to turn — and `spreadChange` and `currentSpread` follow then: a drag the finger still holds, or one that goes back, no longer moves the reader and puts it back. Each key pressed during a turn turns a page, a key the way a turn is going back sends it on, a finger holding the page keeps keys from it, and a turn waiting for its page gives way to whatever the reader is asked next, a finger included.
+
+### Patch Changes
+
+- 9acccfc: A finger's speed is measured as touch toolkits measure it: from when it came down, over its last 100 ms, and none once it has held still 40 ms. A short drag held still before it lifts goes back instead of turning the page as if flicked, and so does a nudge after the finger has rested on the page; a flick lifted while moving still turns it.
+- Updated dependencies [9acccfc]
+- Updated dependencies [3f36c1c]
+- Updated dependencies [8184de4]
+- Updated dependencies [bc65321]
+  - @ritojs/core@4.3.0
+
 ## 4.2.0
 
 ### Minor Changes

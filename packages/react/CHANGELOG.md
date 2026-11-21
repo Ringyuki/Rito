@@ -1,5 +1,17 @@
 # @ritojs/react
 
+## 4.3.0
+
+### Patch Changes
+
+- 3f36c1c: A book whose `initialLocator` names no chapter it holds (a position saved against another edition, or written in a form the book does not use) opens at its start instead of failing to open, and `reader.initialLocatorMatch` is `'bookStart'`; otherwise it says which of the locator's selectors the book opened at (`ReaderLocatorMatchedBy`). Only the open falls back: `navigateToLocator` to such a locator still leaves the reader where it is. `useRitoScrollReader` opens the book on `initialLocator`'s chapter, so the line is in the first layout and the open reports the match.
+- Updated dependencies [9acccfc]
+- Updated dependencies [3f36c1c]
+- Updated dependencies [8184de4]
+- Updated dependencies [bc65321]
+  - @ritojs/core@4.3.0
+  - @ritojs/kit@4.3.0
+
 ## 4.2.0
 
 ### Minor Changes
