@@ -1,4 +1,4 @@
-## Unreleased
+## 0.11.0 - 2026-11-21
 
 ### A stored position that names no chapter opens the book at its start
 
