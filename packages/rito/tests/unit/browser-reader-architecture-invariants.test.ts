@@ -61,8 +61,9 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // with OpenType features (its vertical forms) as a face of its own.
 // +15 lines (2026-11-21): `initialLocatorMatch`, how far the locator the
 // book opened at was followed, `bookStart` when its href named no chapter.
+// +3 lines (2026-11-21): the engine a book opens on makes its page turns' motion.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2947;
+const SESSION_READER_LINE_BUDGET = 2950;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -88,7 +89,9 @@ const SESSION_READER_LINE_BUDGET = 2947;
 // shape of a caret across a vertical line and which way its keys move it.
 // +17 lines (2026-11-21): `initialLocatorMatch` and the `bookStart` match, a
 // book opened at its start because its saved position named no chapter.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1059;
+// +144 lines (2026-11-21): `loadTurnMotion` and `loadedTurnMotion`, the
+// motion of any page turn, the engine's, which the kit's turns move by.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1203;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -154,7 +157,8 @@ describe('Browser reader architecture invariant: the reader stays a thin shell',
   it('stays within the counted thin-shell budget', () => {
     expect(SESSION_READER_FILES.length).toBeLessThanOrEqual(SESSION_READER_FILE_BUDGET);
     expect(lineCount(SESSION_READER_FILES)).toBeLessThanOrEqual(SESSION_READER_LINE_BUDGET);
-    expect(READER_ROOT_FILES.length).toBeLessThanOrEqual(6);
+    // The motion of any page turn (2026-11-21) is the seventh.
+    expect(READER_ROOT_FILES.length).toBeLessThanOrEqual(7);
     expect(lineCount(READER_ROOT_FILES)).toBeLessThanOrEqual(READER_PUBLIC_CONTRACT_LINE_BUDGET);
   });
 
@@ -245,12 +249,14 @@ describe('Browser reader architecture invariant: one host protocol', () => {
     ).toBe(true);
     expect(read(BROWSER_SESSION_ENGINE)).toMatch(/^} from '@ritojs\/core-wasm';$/m);
 
-    // The page's one instance of the engine, and the paper turn's model on it (2026-10-19).
+    // The page's one instance of the engine, and the paper turn's model on it
+    // (2026-10-19), and the motion of any page turn on it (2026-11-21).
     const allowed = new Set([
       BROWSER_CORE_CONTRACTS,
       BROWSER_SESSION_ENGINE,
       join(BROWSER_BINDING, 'engine-module.ts'),
       join(BROWSER_BINDING, 'paper-turn/model.ts'),
+      join(BROWSER_BINDING, 'turn-motion.ts'),
     ]);
     const hits = scan(
       BROWSER_BINDING_FILES,

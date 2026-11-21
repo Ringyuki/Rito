@@ -261,6 +261,8 @@ describe('Architecture invariant: the reader facade stays thin', () => {
       'reader/model.ts',
       // The paper page turn's model, the engine's (2026-10-19).
       'reader/paper-turn.ts',
+      // The motion of any page turn, the engine's (2026-11-21).
+      'reader/turn-motion.ts',
     ]);
   });
 
@@ -271,6 +273,9 @@ describe('Architecture invariant: the reader facade stays thin', () => {
     const turn = read(join(READER_ROOT, 'paper-turn.ts'));
     expect(turn).not.toMatch(/from\s+['"][^'"]*bindings\/browser/);
     expect(turn).toContain("import('../bindings/browser/paper-turn/model')");
+    const motion = read(join(READER_ROOT, 'turn-motion.ts'));
+    expect(motion).not.toMatch(/from\s+['"][^'"]*bindings\/browser/);
+    expect(motion).toContain("import('../bindings/browser/turn-motion')");
   });
 
   it('hosts the engine in one module: the rest of the page side imports only the decoder', () => {
@@ -278,7 +283,13 @@ describe('Architecture invariant: the reader facade stays thin', () => {
     // instance `engine-module.ts` makes for the page, which the paper turn's
     // model shares (2026-10-19); everything else a page loads reaches the
     // wasm package through its decoder entry, or for types.
-    const engine = ['reader-session-in-thread.ts', 'engine-module.ts', 'paper-turn/model.ts'];
+    const engine = [
+      'reader-session-in-thread.ts',
+      'engine-module.ts',
+      'paper-turn/model.ts',
+      // The motion of any page turn (2026-11-21).
+      'turn-motion.ts',
+    ];
     const hits = scan(
       walkTs(BROWSER_BINDING).filter((file) => !engine.some((name) => file.endsWith(name))),
       /^import (?!type\b)[^;]*from '@ritojs\/core-wasm';$/gm,

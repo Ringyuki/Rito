@@ -48,6 +48,12 @@ await writeFile(
     '  }',
     '}',
     '',
+    'export class RitoTurnMotion {',
+    '  constructor() {',
+    `    throw new Error(${JSON.stringify(UNAVAILABLE)});`,
+    '  }',
+    '}',
+    '',
   ].join('\n'),
 );
 await writeFile(
@@ -57,6 +63,7 @@ await writeFile(
     "export declare const initRitoCoreWasm: RitoReaderSessionWorkerHandlerDependencies['initRitoCoreWasm'];",
     "export declare const RitoReaderSession: RitoReaderSessionWorkerHandlerDependencies['RitoReaderSession'];",
     'export declare const RitoPaperTurn: RitoPaperTurnClass;',
+    'export declare const RitoTurnMotion: RitoTurnMotionClass;',
     'export declare function initRitoCoreWasmSync(options: { module: BufferSource }): unknown;',
     '',
   ].join('\n'),

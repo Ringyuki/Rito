@@ -1,4 +1,10 @@
-export { createReader, loadPaperTurnModel, preloadReaderRuntime } from './reader';
+export {
+  createReader,
+  loadedTurnMotion,
+  loadPaperTurnModel,
+  loadTurnMotion,
+  preloadReaderRuntime,
+} from './reader';
 export type {
   ChapterRange,
   FootnoteEntry,
@@ -19,6 +25,14 @@ export type {
   PaperTurnRelease,
   PaperTurnSheet,
   PaperTurnTouch,
+  TurnMotion,
+  TurnMotionAt,
+  TurnMotionBegin,
+  TurnMotionFactory,
+  TurnMotionPhase,
+  TurnMotionPhysics,
+  TurnMotionState,
+  TurnMotionStep,
   Reader,
   ReaderAnnotationTarget,
   ReaderAnnotationTargetResolution,
