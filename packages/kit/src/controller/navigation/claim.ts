@@ -33,6 +33,7 @@ export function claimNavigation(
 ): NavigationClaim {
   const id = ++machine.claimSeq;
   clearQueuedIntent(machine);
+  deps.turnTargets.forget();
   deps.onContentInteractionIntent?.();
   if (!preservePositionIntent) deps.onNavigationIntent?.();
   return claimOf(machine, id);

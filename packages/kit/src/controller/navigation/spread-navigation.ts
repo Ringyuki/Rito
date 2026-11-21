@@ -1,19 +1,15 @@
-import type { Reader } from '@ritojs/core';
 import { claimNavigation } from './claim';
-import type { GestureNavigationToken, NavigationDeps } from './index';
-import { ensureIncomingSlot, navigationTarget } from './pending';
+import type { NavigationDeps } from './index';
+import { navigationTarget } from './pending';
 import { leavesChapterLaidOutAlone, waitForBook } from './book-navigation';
 import {
   clearQueuedIntent,
   enqueueIntent,
   queuedBookTurn,
-  queuedSpreadTurn,
-  type GestureNavigationRequest,
   type NavigationAttempt,
   type NavigationIntentSource,
   type NavigationMachine,
 } from './machine';
-import { emitNavigationStart } from './start';
 
 export function createLocatorNavigator(
   machine: NavigationMachine,
@@ -46,141 +42,48 @@ export function startRelativeNavigation(
 ): void {
   const waiting = queuedBookTurn(machine)?.delta ?? 0;
   const index = deps.getCurrentSpread() + waiting + step;
-  replaceWithNavigation(machine, deps, goToSpread(machine, deps, index, source, undefined, true));
-}
-
-export function startGestureNavigation(
-  machine: NavigationMachine,
-  deps: NavigationDeps,
-  index: number,
-  onTransitionStart: () => void,
-  onUnavailable?: () => void,
-): GestureNavigationToken {
-  if (machine.disposed) {
-    onUnavailable?.();
-    return { cancel() {} };
-  }
-  const request: GestureNavigationRequest = {
-    onTransitionStart,
-    ...(onUnavailable ? { onUnavailable } : {}),
-    started: false,
-    cancelled: false,
-  };
-  replaceWithNavigation(machine, deps, goToSpread(machine, deps, index, 'gesture', request));
-  return createGestureToken(machine, deps, request);
-}
-
-function createGestureToken(
-  machine: NavigationMachine,
-  deps: NavigationDeps,
-  request: GestureNavigationRequest,
-): GestureNavigationToken {
-  return {
-    cancel(): void {
-      if (request.started) return;
-      request.cancelled = true;
-      if (queuedSpreadTurn(machine)?.gesture === request) {
-        machine.claimSeq += 1;
-        clearQueuedIntent(machine);
-        deps.onNavigationCancelled?.();
-      }
-    },
-  };
+  replaceWithNavigation(machine, deps, goToSpread(machine, deps, index, source, true));
 }
 
 /**
- * `relative` says `index` was counted from the spread the reader was on
- * when asked. Cutting into a turn that was going back puts the reader back
- * on the spread it left, and a step is taken from there.
+ * A turn to `index`, commanded of the engine. `relative` says it is a step
+ * to the neighbour: the engine counts steps made during a turn, and turns a
+ * turn going back round. A spread further off is named for the one turn.
  */
 function goToSpread(
   machine: NavigationMachine,
   deps: NavigationDeps,
   index: number,
   source: NavigationIntentSource,
-  gesture?: GestureNavigationRequest,
   relative = false,
 ): NavigationAttempt {
-  const initialReader = deps.getReader();
-  if (machine.disposed || !initialReader) return { claimedIntent: false };
-  const initialTarget = navigationTarget(initialReader, index);
-  const initialPrevious = deps.getCurrentSpread();
+  const reader = deps.getReader();
+  if (machine.disposed || !reader) return { claimedIntent: false };
+  const previous = deps.getCurrentSpread();
   const claim = claimNavigation(machine, deps);
   if (!claim.owns()) return { claimedIntent: true, attemptId: claim.id };
-  if (leavesChapterLaidOutAlone(initialReader, index)) {
-    if (gesture) return completeNoOpNavigation(deps, claim.id, gesture);
-    return waitForBook(claim.id, index - initialPrevious, source, () => {
-      startNavigation(machine, deps, deps.getCurrentSpread() + index - initialPrevious, source);
+  if (leavesChapterLaidOutAlone(reader, index)) {
+    return waitForBook(claim.id, index - previous, source, () => {
+      startNavigation(machine, deps, deps.getCurrentSpread() + index - previous, source);
     });
   }
-  if (initialTarget === initialPrevious) {
-    return completeNoOpNavigation(deps, claim.id, gesture);
+  const target = navigationTarget(reader, index);
+  if (target === previous) return completeNoOpNavigation(deps, claim.id);
+  const direction = target > previous ? 'next' : 'previous';
+  const far = !relative && Math.abs(target - previous) !== 1;
+  // A turn to a spread further off lands where it is named: the turn on
+  // screen is settled first, so the spread named is the next turn's.
+  if (far && deps.td.turning) deps.td.settleNow();
+  if (far) deps.turnTargets.aim(direction, target);
+  if (!deps.td.command(direction)) {
+    deps.turnTargets.forget();
+    return completeNoOpNavigation(deps, claim.id);
   }
-
-  // The turn in flight is settled where it stands; its picture carries on into this one.
-  deps.td.handOver();
-  const previous = deps.getCurrentSpread();
-  if (!claim.owns()) return { claimedIntent: true, attemptId: claim.id };
-  const reader = deps.getReader();
-  if (!reader) return { claimedIntent: true, attemptId: claim.id };
-  const requested = relative ? previous + index - initialPrevious : index;
-  const target = navigationTarget(reader, requested);
-  if (target === previous) {
-    return completeNoOpNavigation(deps, claim.id, gesture);
-  }
-  const direction = target > previous ? 'forward' : 'backward';
-  return createKnownSpreadAttempt(
-    machine,
-    deps,
-    reader,
-    claim.id,
-    target,
-    direction,
-    previous,
-    source,
-    gesture,
-  );
+  deps.frameDriver.scheduleComposite();
+  return { claimedIntent: true, attemptId: claim.id };
 }
 
-function createKnownSpreadAttempt(
-  machine: NavigationMachine,
-  deps: NavigationDeps,
-  reader: Reader,
-  attemptId: number,
-  target: number,
-  direction: 'forward' | 'backward',
-  previous: number,
-  source: NavigationIntentSource,
-  gesture?: GestureNavigationRequest,
-): NavigationAttempt {
-  if (!ensureIncomingSlot(deps, target, direction)) {
-    deps.frameDriver.scheduleComposite();
-    return {
-      claimedIntent: true,
-      attemptId,
-      pendingNavigation: {
-        attemptId,
-        target,
-        direction,
-        previous,
-        source,
-        ...(gesture ? { gesture } : {}),
-      },
-    };
-  }
-  emitNavigationStart(machine, deps, reader, attemptId, target, direction, previous, gesture);
-  return { claimedIntent: true, attemptId };
-}
-
-function completeNoOpNavigation(
-  deps: NavigationDeps,
-  attemptId: number,
-  gesture?: GestureNavigationRequest,
-): NavigationAttempt {
-  if (gesture && !gesture.started) {
-    gesture.cancelled = true;
-    gesture.onUnavailable?.();
-  }
+function completeNoOpNavigation(deps: NavigationDeps, attemptId: number): NavigationAttempt {
   deps.onNavigationCancelled?.();
   return { claimedIntent: true, attemptId };
 }
@@ -203,8 +106,5 @@ function replaceWithNavigation(
     enqueueIntent(machine, { kind: 'book', turn: attempt.pendingBookTurn });
     return;
   }
-  enqueueIntent(
-    machine,
-    attempt.pendingNavigation ? { kind: 'spread', turn: attempt.pendingNavigation } : undefined,
-  );
+  enqueueIntent(machine, undefined);
 }

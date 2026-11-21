@@ -1,22 +1,20 @@
 import type { Reader } from '@ritojs/core';
 import { describe, expect, it, vi } from 'vitest';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
+import { fakeTurns } from './helpers/fake-turns';
 
 describe('navigation direct interaction ownership', () => {
-  it('does not settle newer navigation started by pending gesture cancellation', () => {
+  it('settles the turn on screen where it was going, and turns go to the neighbours again', () => {
     let currentSpread = 0;
-    let contentReady = false;
-    let animating = false;
-    const forceSettle = vi.fn(() => {
-      animating = false;
-      return 0;
-    });
-    const goToTarget = vi.fn(() => {
-      animating = true;
-    });
+    const turns = fakeTurns(
+      () => currentSpread,
+      (spread) => {
+        currentSpread = spread;
+      },
+    );
     const reader = {
-      totalSpreads: 3,
-      spreads: [{}, {}, {}],
+      totalSpreads: 5,
+      spreads: [{}, {}, {}, {}, {}],
       notifyActiveSpread: vi.fn(),
     } as unknown as Reader;
     const deps = {
@@ -26,38 +24,30 @@ describe('navigation direct interaction ownership', () => {
         currentSpread = index;
       },
       emitter: { emit: vi.fn() },
-      td: {
-        get isAnimating() {
-          return animating;
-        },
-        get turning() {
-          return animating;
-        },
-        handOver: vi.fn(),
-        forceSettle,
-        goToTarget,
-      },
+      td: turns.td,
+      turnTargets: turns.turnTargets,
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
         assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => contentReady),
+        ensureContent: vi.fn(() => true),
       },
       contentRenderer: vi.fn(),
       onNavigationIntent: vi.fn(),
     } as unknown as NavigationDeps;
     const nav = createNavigation(deps);
-    nav.startGestureNavigation(1, vi.fn(), () => {
-      nav.goToSpread(2);
-    });
-    contentReady = true;
+    nav.goToSpread(3);
+    expect(turns.commands).toEqual([['next', 0, 3]]);
+    // A turn waiting for its page, named to spread 0.
+    turns.turnTargets.aim('previous', 0);
 
     const barrier = nav.supersedeForSelectionIntent();
 
-    expect(barrier).toBeNull();
-    expect(currentSpread).toBe(2);
-    expect(goToTarget).toHaveBeenCalledOnce();
-    expect(forceSettle).not.toHaveBeenCalled();
-    expect(animating).toBe(true);
+    expect(barrier?.owns()).toBe(true);
+    expect(turns.settleNow).toHaveBeenCalledOnce();
+    expect(turns.animating).toBe(false);
+    expect(currentSpread).toBe(3);
+    expect(turns.turnTargets.of('next')).toBe(4);
+    expect(turns.turnTargets.of('previous')).toBe(2);
   });
 });

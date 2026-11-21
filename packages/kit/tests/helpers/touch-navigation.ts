@@ -2,25 +2,18 @@ import { vi, type Mock } from 'vitest';
 import type { Reader, Spread } from '@ritojs/core';
 import type { FrameDriver } from '../../src/driver/frame-driver';
 import { createTransitionDriver } from '../../src/driver/transition-driver';
-import type { PageBufferPool } from '../../src/painter/buffer-pool';
 import type { SelectionEngine } from '../../src/interaction/index';
 import { createEmitter } from '../../src/utils/event-emitter';
 import { createDisposableCollection } from '../../src/utils/disposable';
 import { createInteractionModeManager } from '../../src/controller/interaction-mode';
 import { createNavigation, type NavigationDeps } from '../../src/controller/navigation';
 import { createPrerenderScheduler } from '../../src/controller/prerender';
-import { wireSettledEvents } from '../../src/controller/runtime-frame';
+import { wireTurns } from '../../src/controller/wiring/turns';
 import type { ReaderControllerEvents } from '../../src/controller/types';
 import type { Internals } from '../../src/controller/facade';
 import { wireUnifiedTouchHandler, type GestureDeps } from '../../src/controller/wiring/gesture';
 import { createDomTarget, touch, touchEvent } from './dom-input';
-
-interface PoolHarness {
-  readonly pool: PageBufferPool;
-  readonly slots: { prev: number | null; curr: number | null; next: number | null };
-  readonly rotateForward: Mock;
-  readonly rotateBackward: Mock;
-}
+import { createPoolHarness, type PoolHarness } from './real-turns';
 
 export interface TouchNavigationScenario {
   readonly dom: ReturnType<typeof createDomTarget>;
@@ -65,16 +58,16 @@ export function createTouchNavigationScenario(
   const disposables = createDisposableCollection();
   const prerenderScheduler = createPrerenderScheduler();
 
-  const disposeSettledEvents = wireSettledEvents(
+  const turns = wireTurns({
     internals,
     td,
-    poolHarness.pool,
+    pool: poolHarness.pool,
     emitter,
     frameDriver,
     reader,
     contentRenderer,
     prerenderScheduler,
-  );
+  });
   const nav = createNavigation({
     getReader: () => reader,
     getCurrentSpread: () => internals.currentSpread,
@@ -87,16 +80,12 @@ export function createTouchNavigationScenario(
     frameDriver,
     pool: poolHarness.pool,
     contentRenderer,
+    turnTargets: turns.targets,
   } satisfies NavigationDeps);
   const gestureDeps: GestureDeps = {
     td,
     frameDriver,
-    startGestureNavigation: (index, onTransitionStart) => {
-      return nav.startGestureNavigation(index, onTransitionStart);
-    },
-    getCurrentSpread: () => internals.currentSpread,
-    getTotalSpreads: () => reader.totalSpreads,
-    supersedeTurnInFlight: () => {
+    claimForFinger: () => {
       nav.supersedeForGesture();
     },
   };
@@ -109,7 +98,10 @@ export function createTouchNavigationScenario(
     vi.fn(),
     disposables,
   );
-  disposables.add(disposeSettledEvents);
+  disposables.add(turns.dispose);
+  disposables.add(() => {
+    nav.dispose();
+  });
   disposables.add(() => {
     prerenderScheduler.dispose();
   });
@@ -171,44 +163,6 @@ export function settleTransition(td: ReturnType<typeof createTransitionDriver>):
     steps += 1;
   }
   if (td.isAnimating) throw new Error('transition did not settle');
-}
-
-function createPoolHarness(isContentReady: (index: number | null) => boolean): PoolHarness {
-  const slots: { prev: number | null; curr: number | null; next: number | null } = {
-    prev: null,
-    curr: 0,
-    next: null,
-  };
-  const rotateForward = vi.fn(() => {
-    slots.prev = slots.curr;
-    slots.curr = slots.next;
-    slots.next = null;
-  });
-  const rotateBackward = vi.fn(() => {
-    slots.next = slots.curr;
-    slots.curr = slots.prev;
-    slots.prev = null;
-  });
-  const pool = {
-    getSlotFor(index: number) {
-      if (slots.prev === index) return 'prev';
-      if (slots.curr === index) return 'curr';
-      if (slots.next === index) return 'next';
-      return null;
-    },
-    assignSlot(position: 'prev' | 'curr' | 'next', index: number) {
-      slots[position] = index;
-    },
-    ensureContent: vi.fn((position: 'prev' | 'curr' | 'next') => isContentReady(slots[position])),
-    rotateForward,
-    rotateBackward,
-    jump: vi.fn((spreadIndex: number) => {
-      slots.prev = null;
-      slots.curr = spreadIndex;
-      slots.next = null;
-    }),
-  } as unknown as PageBufferPool;
-  return { pool, slots, rotateForward, rotateBackward };
 }
 
 function spread(index: number): Spread {

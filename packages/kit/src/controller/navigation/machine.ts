@@ -4,23 +4,6 @@ import type { TransitionDriver } from '../../driver/transition-driver';
 /** Where a navigation intent came from, for diagnostics. */
 export type NavigationIntentSource = 'api' | 'keyboard' | 'pointer' | 'gesture' | 'locator';
 
-export interface GestureNavigationRequest {
-  readonly onTransitionStart: () => void;
-  readonly onUnavailable?: (() => void) | undefined;
-  started: boolean;
-  cancelled: boolean;
-}
-
-/** A spread turn waiting for its incoming content slot to be painted. */
-export interface PendingNavigation {
-  readonly attemptId: number;
-  readonly target: number;
-  readonly direction: 'forward' | 'backward';
-  readonly previous: number;
-  readonly source?: NavigationIntentSource;
-  readonly gesture?: GestureNavigationRequest;
-}
-
 /**
  * A turn past the edge of a chapter that is laid out alone: the spread it
  * leads to exists only once the whole book is laid out, so it waits for
@@ -51,7 +34,6 @@ export interface PendingLocatorNavigation {
 export interface NavigationAttempt {
   readonly claimedIntent: boolean;
   readonly attemptId?: number;
-  readonly pendingNavigation?: PendingNavigation;
   readonly pendingBookTurn?: PendingBookTurn;
 }
 
@@ -62,7 +44,6 @@ export interface NavigationAttempt {
  * states the old three-field shape allowed by accident.
  */
 export type QueuedIntent =
-  | { readonly kind: 'spread'; readonly turn: PendingNavigation }
   | { readonly kind: 'book'; readonly turn: PendingBookTurn }
   | { readonly kind: 'locator'; readonly seek: PendingLocatorNavigation };
 
@@ -122,11 +103,6 @@ export function enqueueIntent(machine: NavigationMachine, intent: QueuedIntent |
 
 function describeQueuedIntent(intent: QueuedIntent): string {
   switch (intent.kind) {
-    case 'spread':
-      return (
-        `navigation to spread ${String(intent.turn.target)} ` +
-        `(source: ${intent.turn.source ?? 'unknown'}, attempt ${String(intent.turn.attemptId)})`
-      );
     case 'book':
       return (
         `navigation ${String(intent.turn.delta ?? 'to a book spread')} past the chapter laid out ` +
@@ -142,31 +118,13 @@ export function clearQueuedIntent(machine: NavigationMachine): boolean {
   const queued = machine.queued;
   enqueueIntent(machine, undefined);
   if (!queued) return false;
-  switch (queued.kind) {
-    case 'spread': {
-      const gesture = queued.turn.gesture;
-      if (gesture && !gesture.started) {
-        gesture.cancelled = true;
-        gesture.onUnavailable?.();
-      }
-      break;
-    }
-    case 'book':
-      break;
-    case 'locator':
-      queued.seek.locatorAbort.abort();
-      break;
-  }
+  if (queued.kind === 'locator') queued.seek.locatorAbort.abort();
   return true;
 }
 
 // Typed accessors: consumers read the slot through these so a queued
 // intent of another family reads as absence, exactly like the old
 // per-family fields — without allowing two families to coexist.
-
-export function queuedSpreadTurn(machine: NavigationMachine): PendingNavigation | undefined {
-  return machine.queued?.kind === 'spread' ? machine.queued.turn : undefined;
-}
 
 export function queuedBookTurn(machine: NavigationMachine): PendingBookTurn | undefined {
   return machine.queued?.kind === 'book' ? machine.queued.turn : undefined;
@@ -195,28 +153,27 @@ export interface SupersededNavigation {
   readonly cancelledPending: boolean;
 }
 
+/**
+ * Something asked of the reader directly: older navigation work is retired,
+ * and the turn on screen ends where it was going. A turn still waiting for
+ * its page, which nothing on screen shows yet, is dropped with it.
+ */
 export function supersedeNavigationForDirectInteraction(
   machine: NavigationMachine,
   transition: TransitionDriver,
 ): SupersededNavigation {
   const attemptId = ++machine.claimSeq;
   const cancelledPending = clearQueuedIntent(machine);
-  if (machine.claimSeq === attemptId && transition.isAnimating) {
-    transition.forceSettle();
-  }
+  if (machine.claimSeq === attemptId) transition.settleNow();
   return { attemptId, cancelledPending };
 }
 
 /**
- * A finger begins a turn of its own: older navigation work is retired, and
- * the turn in flight is cut into rather than landed at once, so the finger
- * takes the picture from where it is.
+ * A finger begins a turn of its own: older navigation work is retired. The
+ * turn in flight is the engine's to cut into, the finger taking the picture
+ * from where it is.
  */
-export function supersedeNavigationForGesture(
-  machine: NavigationMachine,
-  transition: TransitionDriver,
-): void {
-  const attemptId = ++machine.claimSeq;
+export function supersedeNavigationForGesture(machine: NavigationMachine): void {
+  machine.claimSeq += 1;
   clearQueuedIntent(machine);
-  if (machine.claimSeq === attemptId) transition.handOver();
 }

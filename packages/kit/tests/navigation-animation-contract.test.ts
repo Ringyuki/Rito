@@ -1,11 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Reader, TocEntry } from '@ritojs/core';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
+import { fakeTurns } from './helpers/fake-turns';
 
 describe('navigation animation contract', () => {
-  it('routes normal next, previous, and resolved TOC turns through TransitionDriver', () => {
+  it('routes normal next, previous, and resolved TOC turns through the engine', () => {
     let currentSpread = 1;
-    const goToTarget = vi.fn();
+    const turns = fakeTurns(
+      () => currentSpread,
+      (spread) => {
+        currentSpread = spread;
+      },
+    );
     const emit = vi.fn();
     const spreads = [{}, {}, {}];
     const tocEntry: TocEntry = { label: 'Start', href: 'start.xhtml', children: [] };
@@ -23,7 +29,8 @@ describe('navigation animation contract', () => {
       },
       getRenderScale: () => 1,
       emitter: { emit },
-      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
+      td: turns.td,
+      turnTargets: turns.turnTargets,
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -38,12 +45,11 @@ describe('navigation animation contract', () => {
     navigation.prevSpread();
     navigation.navigateToTocEntry(tocEntry);
 
-    expect(goToTarget.mock.calls).toEqual([
-      ['forward', 1, 2],
-      ['backward', 2, 1],
-      ['backward', 1, 0],
+    expect(turns.commands).toEqual([
+      ['next', 1, 2],
+      ['previous', 2, 1],
+      ['previous', 1, 0],
     ]);
-    expect(emit).toHaveBeenCalledWith('transitionStart', { direction: 'forward' });
-    expect(emit).toHaveBeenCalledWith('transitionStart', { direction: 'backward' });
+    expect(currentSpread).toBe(0);
   });
 });

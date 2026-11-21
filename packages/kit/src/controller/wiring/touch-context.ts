@@ -3,7 +3,6 @@ import type { TransitionPoint } from '../../driver/effects';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { InteractionModeManager } from '../interaction-mode/index';
-import type { GestureNavigationToken } from '../navigation/index';
 import type { GestureSessionContext } from './gesture-session';
 import type {
   PrimarySelectionDragNavigation,
@@ -34,19 +33,8 @@ export interface TouchState {
 export interface GestureDeps {
   readonly td: TransitionDriver;
   readonly frameDriver: FrameDriver;
-  readonly startGestureNavigation: (
-    index: number,
-    onTransitionStart: () => void,
-    onUnavailable?: () => void,
-  ) => GestureNavigationToken;
-  readonly getCurrentSpread: () => number;
-  readonly getTotalSpreads: () => number;
-  /**
-   * Retires older navigation work before the finger's own turn. A turn in
-   * flight is cut into: its outcome is settled, and the finger takes its
-   * picture from where it is.
-   */
-  readonly supersedeTurnInFlight: () => void;
+  /** Retires older navigation work before the finger's own turn. */
+  readonly claimForFinger: () => void;
   /** Holds the whole-book layout back until the returned function is called. */
   readonly holdBookLayout?: (() => () => void) | undefined;
 }
@@ -81,8 +69,7 @@ export function createTouchHandlerContext(
     toLocal,
     onTap,
     selectionNavigation,
-    gesture: null,
-    ownsTransition: false,
+    turningByFinger: false,
   };
 }
 

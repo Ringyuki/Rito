@@ -198,7 +198,7 @@ function disposeLifecycle(
       disposables.disposeAll();
     },
     () => {
-      runtime.disposeSettledEvents();
+      runtime.disposeTurns();
     },
     () => {
       runtime.prerenderScheduler.dispose();

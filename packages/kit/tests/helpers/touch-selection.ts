@@ -17,9 +17,9 @@ export interface TouchSelectionHarness {
   readonly selection: SelectionHarness;
   readonly tap: Mock<(position: { x: number; y: number }) => void>;
   readonly setMode: Mock<InteractionModeManager['setMode']>;
-  readonly cancelTracking: Mock<TransitionDriver['cancelTracking']>;
-  readonly releaseTracking: Mock<TransitionDriver['releaseTracking']>;
-  readonly startGestureNavigation: Mock<GestureDeps['startGestureNavigation']>;
+  readonly fingerDown: Mock<TransitionDriver['fingerDown']>;
+  readonly fingerUp: Mock<TransitionDriver['fingerUp']>;
+  readonly fingerCancel: Mock<TransitionDriver['fingerCancel']>;
   readonly disposables: DisposableCollection;
 }
 
@@ -35,36 +35,27 @@ export function createTouchSelectionHarness(
   const selection = createSelectionHarness();
   const tap = vi.fn<(position: { x: number; y: number }) => void>();
   const setMode = vi.fn<InteractionModeManager['setMode']>();
-  const cancelTracking = vi.fn<TransitionDriver['cancelTracking']>(() => true);
-  const cancelGestureNavigation = vi.fn();
-  const releaseTracking = vi.fn<TransitionDriver['releaseTracking']>(() => 'cancel');
+  const fingerDown = vi.fn<TransitionDriver['fingerDown']>();
+  const fingerUp = vi.fn<TransitionDriver['fingerUp']>();
+  const fingerCancel = vi.fn<TransitionDriver['fingerCancel']>();
   const scheduleComposite = vi.fn();
   const td = {
     get isAnimating() {
       return isAnimating();
     },
-    cancelTracking,
-    releaseTracking,
-    startTracking: vi.fn(),
-    updateTracking: vi.fn(),
-    interrupt: vi.fn(),
-    forceSettle: vi.fn(() => 0),
-    onSettled: vi.fn(() => () => {}),
+    viewportWidth: 300,
+    spine: 0,
+    physics: undefined,
+    fingerDown,
+    fingerMove: vi.fn(),
+    fingerUp,
+    fingerCancel,
   } as unknown as TransitionDriver;
   const frameDriver = { scheduleComposite } as unknown as FrameDriver;
-  const startGestureNavigation = vi.fn<GestureDeps['startGestureNavigation']>(
-    (_index: number, onTransitionStart: () => void) => {
-      onTransitionStart();
-      return { cancel: cancelGestureNavigation };
-    },
-  );
   const deps: GestureDeps = {
     td,
     frameDriver,
-    startGestureNavigation,
-    getCurrentSpread: () => 0,
-    getTotalSpreads: () => 3,
-    supersedeTurnInFlight: vi.fn(),
+    claimForFinger: vi.fn(),
   };
   const modeManager = {
     mode: 'gesture',
@@ -87,9 +78,9 @@ export function createTouchSelectionHarness(
     selection,
     tap,
     setMode,
-    cancelTracking,
-    releaseTracking,
-    startGestureNavigation,
+    fingerDown,
+    fingerUp,
+    fingerCancel,
     disposables,
   };
 }

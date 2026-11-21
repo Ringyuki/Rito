@@ -29,7 +29,7 @@ export function buildSuspension(
       if (internals.suspended || mounting.disposed) return;
       // What was under way ends here: a turn, a selection, a queued jump.
       nav.supersedeForPositionIntent();
-      abortTransition(runtime.td, emitter);
+      abortTransition(runtime.td, emitter, runtime.turnTargets);
       internals.engines.selection.clear();
       emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
       internals.suspended = true;

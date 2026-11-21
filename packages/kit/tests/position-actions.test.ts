@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Reader, ReaderLocator } from '@ritojs/core';
 import { buildPositionActions } from '../src/controller/facade/position-actions';
 import type { Internals } from '../src/controller/core/internals';
+import { fakeTurns } from './helpers/fake-turns';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
 import { createPositionTracker } from '../src/interaction/position/tracker';
 import type { PositionLayout, ReadingPosition } from '../src/interaction/position/model';
@@ -413,14 +414,26 @@ describe('position actions ownership', () => {
     });
   });
 
-  it('captures nested navigation and rejects a position jump superseded during force-settle', async () => {
+  it('captures nested navigation and rejects a position jump superseded while the turn on screen settles', async () => {
     const positionLayout = threeSpreadLayout();
     const tracker = createPositionTracker(() => positionLayout);
     tracker.update(0);
     const internals = createInternals(tracker, { load: vi.fn(), save: vi.fn() });
     const navigation: { current?: ReturnType<typeof createNavigation> } = {};
-    let animating = true;
-    const goToTarget = vi.fn();
+    // A turn lands the reader on its spread, which the reader is told of.
+    const turns = fakeTurns(
+      () => internals.currentSpread,
+      (spread) => {
+        internals.currentSpread = spread;
+        reader.notifyActiveSpread(spread);
+      },
+    );
+    turns.animating = true;
+    // Settling the turn on screen starts a newer navigation.
+    turns.settleNow.mockImplementation(() => {
+      turns.animating = false;
+      navigation.current?.goToSpread(2);
+    });
     const jump = vi.fn();
     const reader = {
       totalSpreads: positionLayout.spreads.length,
@@ -436,21 +449,8 @@ describe('position actions ownership', () => {
         internals.currentSpread = spreadIndex;
       },
       emitter: { emit: vi.fn() },
-      td: {
-        get isAnimating() {
-          return animating;
-        },
-        get turning() {
-          return animating;
-        },
-        handOver: vi.fn(),
-        forceSettle: vi.fn(() => {
-          animating = false;
-          navigation.current?.goToSpread(2);
-          return 0;
-        }),
-        goToTarget,
-      },
+      td: turns.td,
+      turnTargets: turns.turnTargets,
       frameDriver: { scheduleComposite: vi.fn() },
       pool: {
         getSlotFor: vi.fn(() => null),
@@ -479,7 +479,7 @@ describe('position actions ownership', () => {
     expect(tracker.getCurrent()?.projection).toEqual({ pageIndex: 2, spreadIndex: 2 });
     expect(internals.coordState.positionUpdateMode).toEqual({ kind: 'capture' });
     expect(jump).not.toHaveBeenCalled();
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2);
+    expect(turns.commands).toEqual([['next', 0, 2]]);
   });
 
   it('does not start locator work after navigation supersession loses ownership', async () => {

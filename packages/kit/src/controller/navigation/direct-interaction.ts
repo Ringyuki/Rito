@@ -5,7 +5,10 @@ import {
 } from './machine';
 import type { NavigationDeps } from './index';
 
-type DirectInteractionDeps = Pick<NavigationDeps, 'td' | 'onContentInteractionIntent'>;
+type DirectInteractionDeps = Pick<
+  NavigationDeps,
+  'td' | 'turnTargets' | 'onContentInteractionIntent'
+>;
 
 export interface NavigationSelectionInputBarrier {
   owns(): boolean;
@@ -33,8 +36,9 @@ export function supersedeNavigationForGestureIntent(
   deps: DirectInteractionDeps,
 ): void {
   if (machine.disposed) return;
+  deps.turnTargets.forget();
   deps.onContentInteractionIntent?.();
-  supersedeNavigationForGesture(machine, deps.td);
+  supersedeNavigationForGesture(machine);
 }
 
 function supersedeDirectInteraction(
@@ -42,6 +46,7 @@ function supersedeDirectInteraction(
   deps: DirectInteractionDeps,
 ): number | null {
   if (machine.disposed) return null;
+  deps.turnTargets.forget();
   deps.onContentInteractionIntent?.();
   return supersedeNavigationForDirectInteraction(machine, deps.td).attemptId;
 }

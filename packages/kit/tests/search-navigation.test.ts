@@ -7,6 +7,7 @@ import type { PositionLayout, ReadingPosition } from '../src/interaction/positio
 import { createCoordinatorState } from '../src/controller/core/coordinator-state';
 import { buildPositionActions } from '../src/controller/facade/position-actions';
 import { goToSearchResult, type SearchNavDeps } from '../src/controller/engines/search-navigation';
+import { fakeTurns } from './helpers/fake-turns';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation/index';
 
 describe('search navigation', () => {
@@ -123,12 +124,16 @@ describe('search navigation', () => {
       rotateForward: vi.fn(),
       rotateBackward: vi.fn(),
     };
-    let animating = false;
-    const forceSettle = vi.fn(() => {
+    const turns = fakeTurns(
+      () => internals.currentSpread,
+      (spread) => {
+        internals.currentSpread = spread;
+      },
+    );
+    turns.interrupt.mockImplementation(() => {
       expect(pool.jump).not.toHaveBeenCalled();
       expect(pool.assignSlot).not.toHaveBeenCalled();
-      animating = false;
-      return 0;
+      turns.animating = false;
     });
     const nav = createNavigation({
       getReader: () => reader,
@@ -137,16 +142,8 @@ describe('search navigation', () => {
         internals.currentSpread = index;
       },
       emitter: { emit: vi.fn() },
-      td: {
-        get isAnimating() {
-          return animating;
-        },
-        get turning() {
-          return animating;
-        },
-        handOver: vi.fn(),
-        forceSettle,
-      },
+      td: turns.td,
+      turnTargets: turns.turnTargets,
       frameDriver: { scheduleComposite: vi.fn() },
       pool,
       contentRenderer: vi.fn(),
@@ -156,7 +153,7 @@ describe('search navigation', () => {
     } as unknown as NavigationDeps);
     const positionActions = buildPositionActions(internals, nav);
     const pendingPosition = positionActions.goToPosition(readingPosition());
-    animating = true;
+    turns.animating = true;
 
     goToSearchResult(createSearchResult(12), {
       reader,
@@ -167,7 +164,7 @@ describe('search navigation', () => {
 
     expect(internals.currentSpread).toBe(4);
     expect(atomicSignal?.aborted).toBe(true);
-    expect(forceSettle).toHaveBeenCalledOnce();
+    expect(turns.interrupt).toHaveBeenCalledOnce();
     expect(pool.jump).not.toHaveBeenCalled();
     expect(pool.assignSlot).toHaveBeenCalledWith('next', 4);
     expect(pool.ensureContent).toHaveBeenCalledOnce();
@@ -218,7 +215,8 @@ describe('search navigation', () => {
           internals.currentSpread = index;
         },
         emitter: { emit: vi.fn() },
-        td: { isAnimating: false, turning: false, handOver: vi.fn() },
+        td: { isAnimating: false, turning: false, settleNow: vi.fn() },
+        turnTargets: { forget: vi.fn() },
         frameDriver: { scheduleComposite: vi.fn() },
         pool,
         contentRenderer: vi.fn(),

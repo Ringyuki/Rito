@@ -5,15 +5,10 @@ import type { PrimarySelectionDragNavigation } from './selection-drag';
 import type { TransitionTouch } from '../../driver/effects';
 import { alongTheTurn, travelOf } from '../../driver/physics';
 import {
-  activateGestureTransition,
-  applyGestureSample,
-  cancelDeferredGesture,
+  beginFingerTurn,
   cancelGestureSession,
-  createGestureSession,
   finishGesture,
-  settleOwnedTransition,
   updateGesture,
-  watchOwnedTransition,
 } from './gesture-session';
 import {
   activeTouch,
@@ -56,14 +51,10 @@ export function wireUnifiedTouchHandler(
       return { x: client.x - frame.left, y: client.y - frame.top };
     },
   );
-  const stopWatchingSettled = watchOwnedTransition(context);
   let removeTouchListeners = (): void => undefined;
   disposables.add(() => {
     removeTouchListeners();
     cancelActiveTouch(context);
-    cancelDeferredGesture(context);
-    settleOwnedTransition(context);
-    stopWatchingSettled();
   });
   removeTouchListeners = bindTouchListeners(target, context);
 }
@@ -102,7 +93,6 @@ function bindTouchListeners(target: HTMLElement, context: TouchHandlerContext): 
 
 function handleTouchStart(context: TouchHandlerContext, event: TouchEvent): void {
   if (context.state.activeTouchId !== null) return;
-  cancelDeferredGesture(context);
   const touch = event.changedTouches[0] ?? event.touches[0];
   if (!touch) return;
   const { state, deps } = context;
@@ -191,37 +181,8 @@ function beginGesture(
   clearTouchTimer(state);
   state.phase = 'gesture';
   modeManager.setMode('gesture');
-  // Before the spread is read: cutting into a turn that was going back puts
-  // the reader back on the spread it left.
-  if (state.wasAnimating || deps.td.isAnimating) deps.supersedeTurnInFlight();
-
-  const direction = sample.dx < 0 ? 'forward' : 'backward';
-  const current = deps.getCurrentSpread();
-  const target = direction === 'forward' ? current + 1 : current - 1;
-  const session = createGestureSession(sample.dx, timestamp, sample.touch);
-  context.gesture = session;
-  if (target < 0 || target >= deps.getTotalSpreads()) {
-    deps.td.startTracking(direction, current, null, timestamp);
-    session.started = true;
-    context.ownsTransition = true;
-    applyGestureSample(context, session);
-  } else {
-    const token = deps.startGestureNavigation(
-      target,
-      () => {
-        activateGestureTransition(context, session);
-      },
-      () => {
-        if (context.gesture !== session || session.started) return;
-        session.status = 'cancelled';
-        session.token = null;
-        context.gesture = null;
-        deps.frameDriver.scheduleComposite();
-      },
-    );
-    if (!session.started) session.token = token;
-  }
-  deps.frameDriver.scheduleComposite();
+  deps.claimForFinger();
+  beginFingerTurn(context, sample.dx, timestamp, sample.touch);
 }
 
 function handleGestureMove(context: TouchHandlerContext, event: TouchEvent, touch: Touch): void {

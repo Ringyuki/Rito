@@ -18,6 +18,7 @@ import {
 } from '../src/interaction/position/model';
 import { createPositionTracker } from '../src/interaction/position/tracker';
 import { createSearchEngine, type SearchResult } from '../src/interaction';
+import { fakeTurns, type FakeTurns } from './helpers/fake-turns';
 
 const locator: ReaderLocator = {
   href: 'chapter.xhtml',
@@ -106,7 +107,8 @@ describe('reading position while a chapter is laid out alone', () => {
 interface Harness {
   readonly nav: ReturnType<typeof createNavigation>;
   readonly reader: { layoutScope: 'chapter' | 'book'; totalSpreads: number; spreads: object[] };
-  readonly goToTarget: ReturnType<typeof vi.fn>;
+  /** Each turn taken: which way, from which spread, to which. */
+  readonly commands: FakeTurns['commands'];
   readonly onNavigationCancelled: ReturnType<typeof vi.fn>;
   readonly current: () => number;
   /** The whole book is committed: the chapter's spreads sit `offset` further on. */
@@ -115,7 +117,12 @@ interface Harness {
 
 function harness(currentSpread: number): Harness {
   let current = currentSpread;
-  const goToTarget = vi.fn();
+  const turns = fakeTurns(
+    () => current,
+    (spread) => {
+      current = spread;
+    },
+  );
   const onNavigationCancelled = vi.fn();
   const reader = {
     layoutScope: 'chapter' as 'chapter' | 'book',
@@ -130,7 +137,8 @@ function harness(currentSpread: number): Harness {
       current = index;
     },
     emitter: { emit: vi.fn() },
-    td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
+    td: turns.td,
+    turnTargets: turns.turnTargets,
     frameDriver: { scheduleComposite: vi.fn() },
     pool: {
       getSlotFor: vi.fn(() => null),
@@ -146,7 +154,7 @@ function harness(currentSpread: number): Harness {
   return {
     nav,
     reader,
-    goToTarget,
+    commands: turns.commands,
     onNavigationCancelled,
     current: () => current,
     commitBook: (offset, totalSpreads) => {
@@ -161,17 +169,16 @@ function harness(currentSpread: number): Harness {
 
 describe('a turn past the chapter laid out alone', () => {
   it('waits for the whole book and then turns from where the reader is', () => {
-    const { nav, goToTarget, current, commitBook, onNavigationCancelled } = harness(3);
+    const { nav, commands, current, commitBook, onNavigationCancelled } = harness(3);
 
     nav.nextSpread('keyboard');
     // Not the end of the book: nothing moves, and nothing reports a dead end.
-    expect(goToTarget).not.toHaveBeenCalled();
+    expect(commands).toEqual([]);
     expect(onNavigationCancelled).not.toHaveBeenCalled();
     expect(current()).toBe(3);
 
     commitBook(20, 40);
-    expect(goToTarget).toHaveBeenCalledOnce();
-    expect(goToTarget).toHaveBeenCalledWith('forward', 23, 24);
+    expect(commands).toEqual([['next', 23, 24]]);
     expect(current()).toBe(24);
   });
 
@@ -185,7 +192,7 @@ describe('a turn past the chapter laid out alone', () => {
     const backward = harness(0);
     backward.nav.prevSpread();
     backward.commitBook(20, 40);
-    expect(backward.goToTarget).toHaveBeenCalledWith('backward', 20, 19);
+    expect(backward.commands).toEqual([['previous', 20, 19]]);
   });
 
   it('is undone by a turn back, and replaced by a turn to a spread named outright', () => {
@@ -195,47 +202,37 @@ describe('a turn past the chapter laid out alone', () => {
     // Forward one and back one is where the reader already is.
     expect(undone.current()).toBe(3);
     undone.commitBook(20, 40);
-    expect(undone.goToTarget).not.toHaveBeenCalled();
+    expect(undone.commands).toEqual([]);
     expect(undone.current()).toBe(23);
 
     const replaced = harness(3);
     replaced.nav.nextSpread();
     replaced.nav.goToSpread(1);
     expect(replaced.current()).toBe(1);
-    replaced.goToTarget.mockClear();
+    replaced.commands.length = 0;
     replaced.commitBook(20, 40);
-    expect(replaced.goToTarget).not.toHaveBeenCalled();
+    expect(replaced.commands).toEqual([]);
     expect(replaced.current()).toBe(21);
   });
 
   it('stays waiting through a commit that is still one chapter', () => {
-    const { nav, goToTarget, commitBook } = harness(3);
+    const { nav, commands, commitBook } = harness(3);
 
     nav.nextSpread();
     nav.notifyLayoutCommitted();
-    expect(goToTarget).not.toHaveBeenCalled();
+    expect(commands).toEqual([]);
     commitBook(20, 40);
-    expect(goToTarget).toHaveBeenCalledOnce();
-  });
-
-  it('tells a drag there is nothing to pull into view yet', () => {
-    const { nav, goToTarget, commitBook } = harness(3);
-    const onUnavailable = vi.fn();
-
-    nav.startGestureNavigation(4, vi.fn(), onUnavailable);
-    expect(onUnavailable).toHaveBeenCalledOnce();
-    commitBook(20, 40);
-    expect(goToTarget).not.toHaveBeenCalled();
+    expect(commands).toHaveLength(1);
   });
 
   it('is the end of the book once the whole book is laid out', () => {
-    const { nav, goToTarget, reader, onNavigationCancelled } = harness(3);
+    const { nav, commands, reader, onNavigationCancelled } = harness(3);
     reader.layoutScope = 'book';
 
     nav.nextSpread();
     expect(onNavigationCancelled).toHaveBeenCalledOnce();
     nav.notifyLayoutCommitted();
-    expect(goToTarget).not.toHaveBeenCalled();
+    expect(commands).toEqual([]);
   });
 });
 
@@ -395,21 +392,21 @@ describe('what a host is told while a chapter is laid out alone', () => {
 
 describe('a spread a host names by its book-wide index', () => {
   it('is reached at once when the whole book is laid out', () => {
-    const { nav, reader, goToTarget, current } = harness(3);
+    const { nav, reader, commands, current } = harness(3);
     reader.layoutScope = 'book';
 
     nav.goToBookSpread(1, 'turn');
-    expect(goToTarget).toHaveBeenCalledWith('backward', 3, 1);
+    expect(commands).toEqual([['previous', 3, 1]]);
     expect(current()).toBe(1);
   });
 
   it('waits for the whole book, where the index means what the host meant', () => {
     const turned = harness(3);
     turned.nav.goToBookSpread(30, 'turn');
-    expect(turned.goToTarget).not.toHaveBeenCalled();
+    expect(turned.commands).toEqual([]);
     expect(turned.current()).toBe(3);
     turned.commitBook(20, 40);
-    expect(turned.goToTarget).toHaveBeenCalledWith('forward', 23, 30);
+    expect(turned.commands).toEqual([['next', 23, 30]]);
 
     // The last spread is read when the book is there to count.
     const last = harness(3);
@@ -421,18 +418,18 @@ describe('a spread a host names by its book-wide index', () => {
     jumped.nav.goToBookSpread(12, 'jump');
     jumped.commitBook(20, 40);
     expect(jumped.current()).toBe(12);
-    expect(jumped.goToTarget).not.toHaveBeenCalled();
+    expect(jumped.commands).toEqual([]);
   });
 
   it('gives way to whatever the reader does next', () => {
-    const { nav, goToTarget, current, commitBook } = harness(3);
+    const { nav, commands, current, commitBook } = harness(3);
 
     nav.goToBookSpread(30, 'turn');
     nav.prevSpread();
     expect(current()).toBe(2);
-    goToTarget.mockClear();
+    commands.length = 0;
     commitBook(20, 40);
-    expect(goToTarget).not.toHaveBeenCalled();
+    expect(commands).toEqual([]);
   });
 });
 
@@ -482,7 +479,8 @@ function controllerHarness() {
   const runtime = {
     surface: { setSize: vi.fn() },
     pool: { resize: vi.fn(), invalidateAllContent: vi.fn(), assignSlot: vi.fn() },
-    td: { reset: vi.fn(), viewportWidth: 0, isAnimating: false },
+    td: { interrupt: vi.fn(), viewportWidth: 0, isAnimating: false },
+    turnTargets: { forget: vi.fn() },
     frameDriver: { scheduleComposite: vi.fn(), compositeNow: vi.fn() },
   } as unknown as RuntimeComponents;
   return { internals, runtime, emitter, events, reader };

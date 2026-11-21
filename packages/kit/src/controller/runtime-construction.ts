@@ -16,7 +16,8 @@ import type { RuntimeComponents } from './facade/types';
 import { DEFAULT_HIGHLIGHT_COLORS, withHighlightColors } from './overlay/colors';
 import { createPositionPersistence } from './position-persistence';
 import { createPrerenderScheduler } from './prerender';
-import { createRuntimeFrameParts, wireSettledEvents } from './runtime-frame';
+import { createRuntimeFrameParts } from './runtime-frame';
+import { wireTurns, type TurnTargets } from './wiring/turns';
 import type { ControllerOptions, ReaderControllerEvents } from './types';
 
 type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
@@ -47,18 +48,18 @@ export function createRuntimeComponents(
   );
   const { internals, pool, prerenderScheduler, transitionDriver, contentRenderer, frameDriver } =
     parts;
-  const disposeSettledEvents = wireSettledEvents(
+  const turns = wireTurns({
     internals,
-    transitionDriver,
+    td: transitionDriver,
     pool,
     emitter,
     frameDriver,
     reader,
     contentRenderer,
     prerenderScheduler,
-  );
-  construction.own(disposeSettledEvents);
-  const runtime = createRuntimeFacade(parts, disposeSettledEvents);
+  });
+  construction.own(turns.dispose);
+  const runtime = createRuntimeFacade(parts, turns.dispose, turns.targets);
   return { internals, runtime, contentRenderer };
 }
 
@@ -113,14 +114,16 @@ function createOwnedRuntimeParts(
 
 function createRuntimeFacade(
   parts: ReturnType<typeof createOwnedRuntimeParts>,
-  disposeSettledEvents: () => void,
+  disposeTurns: () => void,
+  turnTargets: TurnTargets,
 ): RuntimeComponents {
   return {
     td: parts.transitionDriver,
     frameDriver: parts.frameDriver,
     pool: parts.pool,
     prerenderScheduler: parts.prerenderScheduler,
-    disposeSettledEvents,
+    disposeTurns,
+    turnTargets,
     surface: parts.surface,
   };
 }

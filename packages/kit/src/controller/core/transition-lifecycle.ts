@@ -1,4 +1,5 @@
 import type { TransitionFrame } from '../../driver/effects';
+import type { TurnTargets } from '../wiring/turns';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { ReaderControllerEvents } from '../types';
@@ -38,12 +39,18 @@ export function transitionLifecycle(emitter: Emitter): TransitionLifecycle {
 }
 
 /**
- * Drops whatever turn is in flight without landing it (a relayout, a failed
- * chapter presentation) and reports it as interrupted. The only way the
- * controller resets its transition driver.
+ * Drops whatever is on screen where it stands (a relayout, a failed chapter
+ * presentation): the turn in flight ends interrupted. The only way the
+ * controller interrupts its turns.
  */
-export function abortTransition(td: TransitionDriver, emitter: Emitter): void {
-  td.reset();
+export function abortTransition(
+  td: TransitionDriver,
+  emitter: Emitter,
+  targets: Pick<TurnTargets, 'forget'>,
+): void {
+  td.interrupt();
+  targets.forget();
+  // A turn the engine had not reported yet ends here all the same.
   transitionLifecycle(emitter).end('interrupted');
 }
 

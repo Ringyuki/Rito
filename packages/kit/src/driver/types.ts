@@ -30,21 +30,20 @@ export type DrawInstruction =
 export type LeavingNeighbour = 'next' | 'prev' | 'none';
 
 /**
- * The turn as it stands, told as the driver's modes: the engine's motion
- * of it (`@ritojs/core`'s `TurnMotion`), with the spreads it is between.
+ * What is on screen, told as the driver's modes: the engine's page turns
+ * (`@ritojs/core`'s `TurnController`) and the motion of the turn.
  */
 export type TransitionMode =
   | { readonly kind: 'idle' }
   | {
       readonly kind: 'tracking';
       readonly direction: 'forward' | 'backward';
-      readonly outgoingSpread: number;
-      readonly incomingSpread: number | null;
+      /** Whether a neighbour lies the way the turn goes; none for a pull against the end of the book. */
+      readonly hasIncoming: boolean;
       readonly dx: number;
       /** Finger velocity, px/ms. */
       readonly vx: number;
-      readonly lastSampleAt: number;
-      /** The finger holding the turn, when the gesture reports where it is. */
+      /** The finger holding the turn. */
       readonly touch: TransitionTouch | null;
       /** Where the turn was when the finger took it: what its travel is added to. */
       readonly from: number;
@@ -54,8 +53,6 @@ export type TransitionMode =
   | {
       readonly kind: 'settling';
       readonly direction: 'forward' | 'backward';
-      readonly outgoingSpread: number;
-      readonly incomingSpread: number | null;
       readonly target: number;
       readonly dx: number;
       /** Velocity, px/s. */
@@ -66,7 +63,6 @@ export type TransitionMode =
   | {
       readonly kind: 'boundary-elastic';
       readonly direction: 'forward' | 'backward';
-      readonly slotSpread: number;
       readonly dx: number;
       /** Velocity, px/s. */
       readonly vx: number;
@@ -87,13 +83,6 @@ export type TransitionMode =
       /** Added to the motion it was on: the turn's coordinates moved when it landed. */
       readonly shift: number;
     };
-
-/** Callback when a transition settles (animation completes). */
-export interface SettledEvent {
-  readonly direction: 'forward' | 'backward';
-  readonly committed: boolean;
-  readonly targetSpread: number;
-}
 
 /** Options for transition behavior. */
 export interface TransitionDriverOptions {

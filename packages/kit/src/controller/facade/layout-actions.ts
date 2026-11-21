@@ -183,7 +183,7 @@ function applyLayoutCommitMutation(
   runtime.pool.invalidateAllContent();
   runtime.pool.assignSlot('curr', internals.currentSpread);
   // A turn in flight cannot land on the old layout: it ends interrupted.
-  abortTransition(runtime.td, emitter);
+  abortTransition(runtime.td, emitter, runtime.turnTargets);
   const committedSpread = internals.currentSpread;
   installLayoutPositionMode(internals, positionPlan, preserved, committedSpread);
   const carried = carrySelection(internals);

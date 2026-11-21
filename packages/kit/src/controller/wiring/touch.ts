@@ -29,7 +29,7 @@ export function wireTouchGestures(
 ): void {
   const touchRect = wireTouchRectCache(canvas, disposables);
   const touchToContent = createTouchMapper(canvas, internals, touchRect);
-  const gestureDeps = createGestureDeps(runtime, nav, internals, reader);
+  const gestureDeps = createGestureDeps(runtime, nav, reader);
   const wiringDeps = buildWiringDeps(internals, emitter, runtime.frameDriver, canvas, nav);
   const handleTap = (pos: { x: number; y: number }) => {
     dispatchClick(pos, wiringDeps);
@@ -86,18 +86,12 @@ function createTouchMapper(
 function createGestureDeps(
   runtime: RuntimeComponents,
   nav: NavigationActions,
-  internals: Internals,
   reader: Reader,
 ): GestureDeps {
   return {
     td: runtime.td,
     frameDriver: runtime.frameDriver,
-    startGestureNavigation: (index, onTransitionStart, onUnavailable) => {
-      return nav.startGestureNavigation(index, onTransitionStart, onUnavailable);
-    },
-    getCurrentSpread: () => internals.currentSpread,
-    getTotalSpreads: () => reader.totalSpreads,
-    supersedeTurnInFlight: () => {
+    claimForFinger: () => {
       nav.supersedeForGesture();
     },
     holdBookLayout: () => reader.holdBookLayout?.() ?? (() => undefined),

@@ -56,7 +56,8 @@ function createMocks(options?: {
   const resize = vi.fn();
   const invalidateAllContent = vi.fn();
   const assignSlot = vi.fn();
-  const reset = vi.fn();
+  const interrupt = vi.fn();
+  const forgetTurnTarget = vi.fn();
   let annotationStateAtComposite:
     | {
         readonly generation: number;
@@ -137,7 +138,8 @@ function createMocks(options?: {
   const runtime = {
     surface: { setSize },
     pool: { resize, invalidateAllContent, assignSlot },
-    td: { reset, viewportWidth: 0 },
+    td: { interrupt, viewportWidth: 0 },
+    turnTargets: { forget: forgetTurnTarget },
     frameDriver: { scheduleComposite, compositeNow },
     prerenderScheduler: { pause: pausePrerender, resume: resumePrerender },
   } as unknown as RuntimeComponents;
@@ -158,7 +160,8 @@ function createMocks(options?: {
       resize,
       invalidateAllContent,
       assignSlot,
-      reset,
+      interrupt,
+      forgetTurnTarget,
       scheduleComposite,
       compositeNow,
       emit,
@@ -256,7 +259,7 @@ describe('buildLayoutActions', () => {
     expect(spies.resize).toHaveBeenCalledWith(800, 600, 2);
     expect(spies.invalidateAllContent).toHaveBeenCalledOnce();
     expect(spies.assignSlot).toHaveBeenCalledWith('curr', 1);
-    expect(spies.reset).toHaveBeenCalledOnce();
+    expect(spies.interrupt).toHaveBeenCalledOnce();
     expect(spies.compositeNow).toHaveBeenCalledOnce();
     expect(spies.emit).toHaveBeenCalledWith('layoutChange', {
       spreads: reader.spreads,
@@ -276,7 +279,7 @@ describe('buildLayoutActions', () => {
       fontSize: 18,
     });
 
-    expect(spies.reset).toHaveBeenCalledOnce();
+    expect(spies.interrupt).toHaveBeenCalledOnce();
     expect(spies.emit).toHaveBeenCalledWith('transitionEnd', {
       direction: 'forward',
       outcome: lifecycle.ends['relayout-during-turn'][0],

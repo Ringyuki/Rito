@@ -1,7 +1,5 @@
 import type { Reader } from '@ritojs/core';
-import type { FrameDriver } from '../driver/frame-driver';
-import type { TransitionDriver } from '../driver/transition-driver';
-import type { ContentRenderer, PageBufferPool } from '../painter/buffer-pool';
+import type { ContentRenderer } from '../painter/buffer-pool';
 import type { createDisposableCollection } from '../utils/disposable';
 import type { createEmitter } from '../utils/event-emitter';
 import type { ConstructionOwner } from './construction-owner';
@@ -52,14 +50,7 @@ export function bootstrapRuntime(
     construction,
   );
   const { internals, runtime, contentRenderer } = constructionParts;
-  const nav = createRuntimeNavigation(
-    internals,
-    emitter,
-    runtime.td,
-    runtime.frameDriver,
-    runtime.pool,
-    contentRenderer,
-  );
+  const nav = createRuntimeNavigation(internals, emitter, runtime, contentRenderer);
   const disposeNavigation = construction.own(() => {
     nav.dispose();
   });
@@ -71,9 +62,7 @@ export function bootstrapRuntime(
 function createRuntimeNavigation(
   internals: Internals,
   emitter: Emitter,
-  transitionDriver: TransitionDriver,
-  frameDriver: FrameDriver,
-  pool: PageBufferPool,
+  runtime: RuntimeComponents,
   contentRenderer: ContentRenderer,
 ) {
   return createNavigation({
@@ -85,10 +74,11 @@ function createRuntimeNavigation(
     },
     getRenderScale: () => internals.renderScale,
     emitter,
-    td: transitionDriver,
-    frameDriver,
-    pool,
+    td: runtime.td,
+    frameDriver: runtime.frameDriver,
+    pool: runtime.pool,
     contentRenderer,
+    turnTargets: runtime.turnTargets,
     onNavigationIntent: () => {
       internals.engines.position?.claimIntent();
     },

@@ -1,70 +1,74 @@
-import type { TurnMotionState } from '@ritojs/core';
+import type { TurnControllerState } from '@ritojs/core';
 
-import type { TransitionDriverState, TurnIdentity } from './transition-state';
 import type { DrawInstruction, TransitionMode } from './types';
 
-type TurningInstruction = DrawInstruction & { kind: 'turning' };
+const SINGLE: DrawInstruction = { kind: 'single', slot: 'curr' };
 
 /**
- * The frame of a turn on screen: which pages, how far, and what is moving
- * it. A turn that began from what another left is, until it has crossed its
- * own start, still that picture: the frame names the neighbour that turn
- * left in it, on its way out.
+ * What to draw: the page at rest, or the frame of what is on screen. A turn
+ * that began from what another left is, until it has crossed its own
+ * start, still that picture: the frame names the neighbour that turn left
+ * in it, on its way out.
  */
-export function instructionOf(now: TurnMotionState, turn: TurnIdentity | null): TurningInstruction {
-  const finishing = now.phase === 'finishing';
-  const phase =
-    now.phase === 'dragging' ? 'held' : !finishing && now.landing ? 'landing' : 'returning';
+export function instructionOf(now: TurnControllerState | undefined): DrawInstruction {
+  const frame = now?.frame;
+  if (!frame) return SINGLE;
   return {
     kind: 'turning',
     outgoing: 'curr',
-    incoming: now.showing,
-    dx: now.offset,
-    phase,
-    velocity: now.velocity,
-    touch: finishing ? null : (turn?.touch ?? null),
+    incoming: frame.incoming,
+    dx: frame.offset,
+    phase: frame.phase,
+    velocity: frame.velocity,
+    touch: frame.touch,
   };
 }
 
-/** The turn as the driver's modes tell it: what its tests and its host read. */
-export function modeOf(state: TransitionDriverState): TransitionMode {
-  const now = state.motion?.state;
-  const turn = state.turn;
-  if (!now || now.phase === 'idle' || !turn) return { kind: 'idle' };
-  const { direction, outgoingSpread, incomingSpread, touch } = turn;
-  const leaving = now.leaving;
-  switch (now.phase) {
+/** What is on screen as the driver's modes tell it: what its tests and its host read. */
+export function modeOf(now: TurnControllerState | undefined): TransitionMode {
+  const motion = now?.motion;
+  if (!now || !motion || motion.phase === 'idle') return { kind: 'idle' };
+  const direction = motion.forward ? 'forward' : 'backward';
+  const touch = now.frame?.touch ?? null;
+  const leaving = motion.leaving;
+  switch (motion.phase) {
     case 'dragging':
       return {
         kind: 'tracking',
         direction,
-        outgoingSpread,
-        incomingSpread: now.hasIncoming ? incomingSpread : null,
-        dx: now.offset,
-        vx: now.fingerVelocity / 1000,
-        lastSampleAt: turn.lastSampleAt,
+        hasIncoming: motion.hasIncoming,
+        dx: motion.offset,
+        vx: motion.fingerVelocity / 1000,
         touch,
-        from: now.from,
+        from: motion.from,
         leaving,
       };
     case 'settling':
-      return settlingModeOf(now, turn);
+      return motion.hasIncoming
+        ? {
+            kind: 'settling',
+            direction,
+            target: motion.target,
+            dx: motion.offset,
+            vx: motion.velocity,
+            touch,
+            leaving,
+          }
+        : {
+            kind: 'boundary-elastic',
+            direction,
+            dx: motion.offset,
+            vx: motion.velocity,
+            touch,
+            leaving,
+          };
     case 'finishing':
       return {
         kind: 'finishing',
         leaving: leaving ?? 'none',
-        dx: now.offset,
-        vx: now.velocity,
-        shift: now.shift,
+        dx: motion.offset,
+        vx: motion.velocity,
+        shift: motion.shift,
       };
   }
-}
-
-/** A turn going by itself: to its neighbour or back, or back from a pull against the end of the book. */
-function settlingModeOf(now: TurnMotionState, turn: TurnIdentity): TransitionMode {
-  const { direction, outgoingSpread, incomingSpread, touch } = turn;
-  const moving = { direction, dx: now.offset, vx: now.velocity, touch, leaving: now.leaving };
-  return now.hasIncoming
-    ? { kind: 'settling', ...moving, outgoingSpread, incomingSpread, target: now.target }
-    : { kind: 'boundary-elastic', ...moving, slotSpread: outgoingSpread };
 }
