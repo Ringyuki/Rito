@@ -162,6 +162,31 @@ void main() {
     expect(lands(250, 228), isFalse);
   });
 
+  test('moves by the numbers it is given, the engine\'s where none are', () {
+    expect(RitoPaperTurnMotion.defaults.leastPull, 24);
+    expect(RitoPaperTurnMotion.defaults.leafStiffness, 260);
+    final fussy = RitoPaperTurnEffect(
+      motion: const RitoPaperTurnMotion(leastPull: 40),
+    );
+    addTearDown(fussy.dispose);
+    const release = RitoPageTurnRelease(
+      offset: -15,
+      velocity: 0,
+      width: _w,
+      forward: true,
+      touch: RitoPageTurnTouch(
+        origin: Offset(250, 300),
+        position: Offset(220, 300),
+      ),
+    );
+    // A 30 px pull turns a page by the defaults, not one that must be pulled 40.
+    final plain = RitoPaperTurnEffect();
+    addTearDown(plain.dispose);
+    expect(plain.physics.lands(release), isTrue);
+    expect(fussy.physics.lands(release), isFalse);
+    expect(const RitoPaperTurnMotion(stopsIn: 0.3).numbers()[6], 0.3);
+  });
+
   test('steps a page let go once for each moment it is asked about', () {
     final effect = RitoPaperTurnEffect();
     addTearDown(effect.dispose);

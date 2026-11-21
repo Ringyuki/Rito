@@ -3,7 +3,15 @@ part of 'bindings.dart';
 typedef _TurnLayoutsNative =
     Uint32 Function(Pointer<Uint32>, Pointer<_RitoOwnedBuffer>);
 typedef _TurnNewNative =
-    Uint32 Function(Pointer<Uint64>, Pointer<_RitoOwnedBuffer>);
+    Uint32 Function(
+      Pointer<Double>,
+      Pointer<Uint64>,
+      Pointer<_RitoOwnedBuffer>,
+    );
+typedef _TurnConfigureNative =
+    Uint32 Function(Uint64, Pointer<Double>, Pointer<_RitoOwnedBuffer>);
+typedef _TurnDefaultMotionNative =
+    Uint32 Function(Pointer<Double>, Pointer<_RitoOwnedBuffer>);
 typedef _TurnFreeNative = Uint32 Function(Uint64, Pointer<_RitoOwnedBuffer>);
 typedef _TurnBeginNative =
     Uint32 Function(
@@ -84,6 +92,7 @@ typedef _TurnTravelNative =
     );
 typedef _TurnLandsNative =
     Uint32 Function(
+      Uint64,
       Pointer<Double>,
       Pointer<Uint32>,
       Pointer<_RitoOwnedBuffer>,
@@ -107,7 +116,29 @@ external int _ritoPaperTurnLayouts(
   isLeaf: true,
 )
 external int _ritoPaperTurnNew(
+  Pointer<Double> motion,
   Pointer<Uint64> turn,
+  Pointer<_RitoOwnedBuffer> error,
+);
+
+@Native<_TurnConfigureNative>(
+  symbol: 'rito_paper_turn_configure',
+  assetId: ritoNativeAssetId,
+  isLeaf: true,
+)
+external int _ritoPaperTurnConfigure(
+  int turn,
+  Pointer<Double> motion,
+  Pointer<_RitoOwnedBuffer> error,
+);
+
+@Native<_TurnDefaultMotionNative>(
+  symbol: 'rito_paper_turn_default_motion',
+  assetId: ritoNativeAssetId,
+  isLeaf: true,
+)
+external int _ritoPaperTurnDefaultMotion(
+  Pointer<Double> motion,
   Pointer<_RitoOwnedBuffer> error,
 );
 
@@ -251,6 +282,7 @@ external int _ritoPaperTurnTravel(
   isLeaf: true,
 )
 external int _ritoPaperTurnLands(
+  int turn,
   Pointer<Double> release,
   Pointer<Uint32> lands,
   Pointer<_RitoOwnedBuffer> error,
@@ -269,8 +301,8 @@ external int _ritoPaperTurnEyeHeight(
 );
 
 /// How many numbers each of the paper turn's layouts is: frame, sheet,
-/// release, settle, begun, laid, state (`rito_ffi.h`).
-const List<int> ritoPaperTurnLayouts = [23, 11, 15, 12, 4, 11, 4];
+/// release, settle, begun, laid, state, motion (`rito_ffi.h`).
+const List<int> ritoPaperTurnLayouts = [23, 11, 15, 12, 4, 11, 4, 15];
 
 /// The most leaves a call names: more than the book ever holds in the air.
 const int _leavesAtMost = 32;
@@ -336,10 +368,37 @@ final class RitoNativePaperTurn {
     _checkLayouts();
     final handle = calloc<Uint64>();
     try {
-      _call((error) => _ritoPaperTurnNew(handle, error));
+      _call((error) => _ritoPaperTurnNew(nullptr, handle, error));
       _handle = handle.value;
     } finally {
       calloc.free(handle);
+    }
+  }
+
+  /// The numbers paper turns with by default (`rito_ffi.h`'s motion layout).
+  static List<double> defaultMotion() {
+    _checkLayouts();
+    final motion = calloc<Double>(ritoPaperTurnLayouts[7]);
+    final error = calloc<_RitoOwnedBuffer>();
+    try {
+      _throwOn(_ritoPaperTurnDefaultMotion(motion, error), error);
+      return motion.asTypedList(ritoPaperTurnLayouts[7]).toList();
+    } finally {
+      _ritoBufferFree(error);
+      calloc
+        ..free(motion)
+        ..free(error);
+    }
+  }
+
+  /// The numbers the model's turns move by from now on.
+  void configure(List<double> motion) {
+    final numbers = calloc<Double>(ritoPaperTurnLayouts[7]);
+    try {
+      numbers.asTypedList(ritoPaperTurnLayouts[7]).setAll(0, motion);
+      _call((error) => _ritoPaperTurnConfigure(_handle, numbers, error));
+    } finally {
+      calloc.free(numbers);
     }
   }
 
@@ -519,7 +578,7 @@ final class RitoNativePaperTurn {
   bool lands() {
     final lands = calloc<Uint32>();
     try {
-      _call((error) => _ritoPaperTurnLands(_numbers, lands, error));
+      _call((error) => _ritoPaperTurnLands(_handle, _numbers, lands, error));
       return lands.value != 0;
     } finally {
       calloc.free(lands);

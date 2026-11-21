@@ -144,4 +144,5 @@ export 'src/turn/page_turn_controller.dart';
 export 'src/turn/page_turn_drag.dart';
 export 'src/turn/page_turn_events.dart';
 export 'src/turn/page_turn_view.dart';
+export 'src/turn/paper/paper_motion.dart' show RitoPaperTurnMotion;
 export 'src/turn/paper/paper_turn_effect.dart' show RitoPaperTurnEffect;

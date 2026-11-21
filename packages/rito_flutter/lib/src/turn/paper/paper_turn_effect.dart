@@ -12,6 +12,7 @@ import '../page_textures.dart';
 import 'leaf_pages.dart';
 import 'model.dart';
 import 'page_snapshots.dart';
+import 'paper_motion.dart';
 import 'paper_physics.dart';
 import 'render/paper_frame.dart';
 import 'render/renderer.dart';
@@ -64,6 +65,7 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
   RitoPaperTurnEffect({
     this.paper = const Color(0xFFFFFFFF),
     double Function()? now,
+    this.motion,
   }) : _clock = now {
     _physics = PaperTurnPhysics(() => _model, _now);
   }
@@ -71,10 +73,15 @@ final class RitoPaperTurnEffect extends RitoPageTurnEffect {
   /// The paper's colour: what shows where a page's image is transparent.
   final Color paper;
 
+  /// The numbers the paper moves by, in place of the engine's defaults: how
+  /// a leaf let go comes to rest, and how far or how fast a finger must
+  /// pull for it to turn. Null for the defaults.
+  final RitoPaperTurnMotion? motion;
+
   /// The clock the leaf moves by, in ms; the effect's own when not given.
   final double Function()? _clock;
   final _own = Stopwatch()..start();
-  late final RitoPaperTurnModel _model = RitoPaperTurnModel();
+  late final RitoPaperTurnModel _model = RitoPaperTurnModel(motion: motion);
   late final PaperTurnPhysics _physics;
   final _repaint = _Repaint();
   late final _snapshots = PaperPageSnapshots<gpu.Texture>(
