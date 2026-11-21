@@ -10,6 +10,20 @@ opens at its start instead of failing, and the first artifact's
 `requestArtifact` whose href names no chapter still fails, leaving the
 reader on its page. Reader protocol 10.
 
+### Page turns move by the engine's motion
+
+A page turn's motion — the finger while it holds the turn, the release that
+decides it, the spring, a pull against the end of the book and a turn cut
+into by another — is the engine's now, through the C ABI, the same as the
+web's to the bit. `RitoPageTurnPhysics` keeps its numbers, which feed the
+engine's rules, and its hooks: `resist`, `lands`, `begins` and `settle` now
+answer null to leave a decision to the engine (the base class does), so
+physics of your own replace only what they answer. A turn that arrived but
+could not land still goes back from its neighbour.
+
+`RitoPaperTurnEffect(motion:)` takes `RitoPaperTurnMotion`, the numbers the
+paper moves by in place of the engine's defaults.
+
 ### Physics given to the controller outrank an effect's
 
 `RitoPageTurnController(physics:)` is now optional, and physics passed to it

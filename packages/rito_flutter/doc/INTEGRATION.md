@@ -217,14 +217,23 @@ Page textures are drawn by `paintPage` (default
 `invalidatePages()` when they change. A page whose images land late is
 rasterized again.
 
-Physics: extend `RitoPageTurnPhysics` to move a turn another way.
-`travel(origin, position)` says how far a finger has carried the turn — a
-whole turn is one page width, and the way a drag first moves is the way
-its page turns; `resist(travel, width)` says where a pull against the
-first or last page leaves it; `lands(release)` decides whether letting go
-turns the page; and `settle(from:, velocity:, to:)` returns the
-`Simulation` that carries a released or tapped turn to rest. A turn left
-alone stays on screen until that simulation is done.
+Physics: a turn moves by the engine's motion (the web's too, to the bit),
+by the numbers `RitoPageTurnPhysics` gives its built-in rules. Extend it to
+move a turn another way: `travel(origin, position)` says how far a finger
+has carried the turn — a whole turn is one page width, and the way a drag
+first moves is the way its page turns; `resist(travel, width)` says where a
+pull against the first or last page leaves it; `lands(release)` decides
+whether letting go turns the page; `begins(leftover)` where a turn that cuts
+into another begins; and `settle(from:, velocity:, to:)` returns the
+`Simulation` that carries a released or tapped turn to rest. Each answers
+null to leave the decision to the engine's rule, as the base class does. A
+turn left alone stays on screen until its simulation is done.
+
+`RitoPaperTurnEffect(motion:)` sets the numbers the paper moves by
+(`RitoPaperTurnMotion`, each optional; `RitoPaperTurnMotion.defaults` are
+the engine's): the leaf spring, how long a leaf at its own pace takes, how
+far a finger must pull and how far it may come back or how fast fling back
+for a curled page to turn.
 
 ## Rendering (`RitoPageSurface`)
 

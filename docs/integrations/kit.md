@@ -113,11 +113,12 @@ new ratio — it sets `auto` and the browser smooths it, as it smooths the page.
 
 A turn is physics plus an effect. The physics say how it moves — the drag, the
 decision to turn, the way to rest and the pull at the first and last spread — and
-the effect what a frame shows. The built-in physics are a spring: a release hands
-the finger's momentum to it, it is solved in closed form, so a turn follows the
-same path at any refresh rate, and the presets never bounce: past the neighbour,
-or back past the starting page, there may be no page to show. A custom spring
-damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
+the effect what a frame shows. The built-in physics are the engine's
+(`@ritojs/core`'s turn motion, the same on every host to the bit): a spring that a
+release hands the finger's momentum to, solved in closed form, so a turn follows
+the same path at any refresh rate, and whose presets never bounce: past the
+neighbour, or back past the starting page, there may be no page to show. A custom
+spring damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
 
 - `effect`: `'slide'` (the spread moves, the neighbour follows), `'cover'` (later
   pages slide over earlier ones with a shadow), `'fade'` (cross-fade in place) or
@@ -184,7 +185,10 @@ damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
 Change any of it live with `controller.configureTransition({ effect: 'cover' })`.
 
 `createPaperTurn()` is a painted effect with physics of its own: the page turns as
-paper does. With two pages a spread it is a leaf of a book. The leaf stays bound at
+paper does. Its `motion` option sets the numbers the paper moves by in place of the
+engine's defaults (`PaperTurnMotion`, each optional): the leaf spring, how long a
+leaf at its own pace takes, how far a finger must pull and how far it may come back
+or how fast fling back for a curled page to turn, and a two-page leaf's thresholds. With two pages a spread it is a leaf of a book. The leaf stays bound at
 the spine, bends round a cone as it lifts — arched in the air, the corner it is
 taken by leading — swings over the spine, and comes down on the far side edge
 first, the arch settling after. Paper bends without stretching, and the leaf is

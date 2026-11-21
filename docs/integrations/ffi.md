@@ -145,6 +145,22 @@ declares). Like a face added or removed, the mark applies to the next request,
 and it lasts for the session: paint the artifact in hand with a fallback, mark
 the family, and request the page again.
 
+## Page turns
+
+The motion of any page turn is the engine's (`rito_turn_motion_*`): the
+finger while it holds the turn, the release that decides it, the spring
+that carries it to rest, a pull against the end of the book and a turn
+another cuts into. A host feeds it the finger and the frame's seconds on its
+UI thread and draws what its state says; the header lays out the numbers.
+Wherever the built-in rules decide, the host may pass its own physics'
+answer instead — a stretched pull, a release's outcome, where a turn that
+cuts in begins, and a motion it carries to rest itself — so physics of its
+own stay in its own language.
+
+The paper turn's model (`rito_paper_turn_*`) moves by numbers a host may set
+(`rito_paper_turn_new`'s or `rito_paper_turn_configure`'s motion, null for
+the defaults `rito_paper_turn_default_motion` writes).
+
 ## Keeping a hand-written decoder honest
 
 The Dart decoder in `packages/rito_flutter/lib/src/protocol/` is the
