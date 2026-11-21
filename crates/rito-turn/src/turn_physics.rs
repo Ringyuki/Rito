@@ -96,6 +96,15 @@ pub struct TurnRelease {
 /// How many of a finger's last samples its speed is measured from.
 pub(crate) const SPEED_WINDOW: usize = 5;
 
+/// How far back from its latest sample a finger's speed looks, ms: older
+/// samples say nothing of how it moves now (Flutter's and Android's
+/// velocity trackers' horizon).
+pub(crate) const SPEED_HORIZON: f64 = 100.0;
+
+/// A finger not heard of for longer than this, ms, has stopped: what it did
+/// before says nothing of its speed (the trackers' pointer-stopped time).
+pub(crate) const STOPPED_AFTER: f64 = 40.0;
+
 /// A finger's last few places along the turn (px) and when (ms).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct FingerSamples {
@@ -111,6 +120,10 @@ impl FingerSamples {
     }
 
     pub(crate) fn push(&mut self, offset: f64, at: f64) {
+        if self.len > 0 && at - self.samples[self.len - 1].1 > STOPPED_AFTER {
+            // It had stopped: its speed starts again from here.
+            self.len = 0;
+        }
         if self.len == SPEED_WINDOW {
             self.samples.copy_within(1.., 0);
             self.len -= 1;
@@ -119,11 +132,20 @@ impl FingerSamples {
         self.len += 1;
     }
 
-    /// How fast the samples move, px/ms: each step's speed, the later ones
-    /// weighing more, no step shorter than a millisecond.
+    /// How fast the samples within the horizon of the latest move, px/ms:
+    /// each step's speed, the later ones weighing more, no step shorter
+    /// than a millisecond.
     pub(crate) fn speed(&self) -> f64 {
-        let samples = &self.samples[..self.len];
-        if samples.len() < 2 || samples[samples.len() - 1].1 - samples[0].1 < 1.0 {
+        let all = &self.samples[..self.len];
+        let Some(&(_, latest)) = all.last() else {
+            return 0.0;
+        };
+        let first = all
+            .iter()
+            .position(|&(_, at)| latest - at <= SPEED_HORIZON)
+            .unwrap_or(0);
+        let samples = &all[first..];
+        if samples.len() < 2 || latest - samples[0].1 < 1.0 {
             return 0.0;
         }
         let mut weighted = 0.0;

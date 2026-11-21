@@ -196,7 +196,10 @@ struct Finger {
     position: Point,
     travel: f64,
     resisted: Option<f64>,
+    /// When it was last heard of, ms.
     at: f64,
+    /// When it took hold, ms: where its speed is measured from.
+    took_hold: f64,
     /// How far it carried the turn at its farthest, and where it was then.
     farthest: Option<(f64, Point)>,
 }
@@ -256,6 +259,7 @@ impl TurnController {
                 travel: 0.0,
                 resisted: None,
                 at: 0.0,
+                took_hold: 0.0,
                 farthest: None,
             },
             pending: VecDeque::new(),
@@ -350,10 +354,12 @@ impl TurnController {
 
     // --- Fingers -------------------------------------------------------
 
-    /// A finger came down at `origin` and moved far enough, the way pages
-    /// turn, to mean a drag. On a turn on screen it cuts into it, and takes
-    /// the page once that turn is over; a turn still waiting for its page
-    /// gives way to it, as to a newer key.
+    /// A finger came down at `origin` at `at` ms and has since moved far
+    /// enough, the way pages turn, to mean a drag: where and when it came
+    /// down is where and when it took hold, and its speed is measured from
+    /// there. On a turn on screen it cuts into it, and takes the page once
+    /// that turn is over; a turn still waiting for its page gives way to
+    /// it, as to a newer key.
     pub fn finger_down(&mut self, pages: TurnPages, origin: Point, at: f64) {
         self.pages = pages;
         self.answer_pending_with_defaults();
@@ -365,6 +371,7 @@ impl TurnController {
             travel: 0.0,
             resisted: None,
             at,
+            took_hold: at,
             farthest: None,
         };
         if self.open.is_some() {
@@ -785,7 +792,7 @@ impl TurnController {
                 release,
             } => {
                 self.motion
-                    .start_drag(forward, has_incoming, self.finger.at, begin);
+                    .start_drag(forward, has_incoming, self.finger.took_hold, begin);
                 self.follow();
                 if release {
                     self.release();

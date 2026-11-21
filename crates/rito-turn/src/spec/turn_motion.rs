@@ -85,6 +85,34 @@ fn a_short_drag_goes_back_unless_it_was_flicked() {
 }
 
 #[test]
+fn a_finger_that_stopped_or_moved_long_ago_carries_no_speed() {
+    // A fast stroke, then the finger holds still 50 ms before it moves a hair.
+    let mut stopped = motion();
+    stopped.start_drag(true, true, 0.0, None);
+    for (step, at) in [(-40.0, 8.0), (-80.0, 16.0), (-120.0, 24.0)] {
+        stopped.drag(step, at);
+    }
+    assert!(stopped.finger_velocity() < -4000.0);
+    stopped.drag(-121.0, 74.0);
+    assert_eq!(stopped.finger_velocity(), 0.0);
+
+    // A fast step more than 100 ms before the latest says nothing of how
+    // the finger moves now, though it is among the samples still.
+    let mut steady = motion();
+    steady.start_drag(true, true, 0.0, None);
+    for (travel, at) in [
+        (-100.0, 10.0),
+        (-200.0, 20.0),
+        (-203.0, 60.0),
+        (-206.0, 100.0),
+    ] {
+        steady.drag(travel, at);
+    }
+    steady.drag(-209.0, 140.0);
+    assert!((steady.finger_velocity() + 75.0).abs() < 1e-9);
+}
+
+#[test]
 fn dragging_back_past_the_start_or_pulling_back_keeps_the_page() {
     let (mut reversed, mut now) = dragged(true, true);
     carry(&mut reversed, &mut now, 20.0, -900.0);

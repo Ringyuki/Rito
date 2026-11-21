@@ -120,7 +120,12 @@ fn drag(controller: &mut TurnController, to: f64, from_ms: f64) -> Vec<TurnActio
 }
 
 fn lift(controller: &mut TurnController, x: f64, ms: f64) -> Vec<TurnAction> {
-    controller.finger_up(ready(), at(x), x - 300.0, ms);
+    lift_at(controller, x, 300.0, ms)
+}
+
+/// A finger that came down at `down` lifts at `x`, at `ms`.
+fn lift_at(controller: &mut TurnController, x: f64, down: f64, ms: f64) -> Vec<TurnAction> {
+    controller.finger_up(ready(), at(x), x - down, ms);
     host(controller, true)
 }
 
@@ -440,6 +445,28 @@ fn a_finger_that_lifts_while_it_waits_still_makes_its_turn() {
     taken.extend(settle(&mut turns));
     assert_eq!(starts(&taken), [Direction::Next]);
     assert_eq!(ends(&taken).len(), 2);
+}
+
+#[test]
+fn a_finger_is_timed_from_when_it_came_down() {
+    let mut turns = controller();
+    // Down at 0, past the slop by its first move 30 ms later: 15 px in 30 ms.
+    turns.finger_down(ready(), at(300.0), 0.0);
+    turns.finger_move(ready(), at(285.0), -15.0, None, 30.0);
+    host(&mut turns, true);
+    assert!((turns.motion().finger_velocity() + 500.0).abs() < 1e-9);
+}
+
+#[test]
+fn a_short_drag_held_still_before_it_lifts_goes_back() {
+    let mut turns = controller();
+    turns.finger_down(ready(), at(250.0), 0.0);
+    turns.finger_move(ready(), at(238.0), -12.0, None, 8.0);
+    turns.finger_move(ready(), at(232.0), -18.0, None, 24.0);
+    let mut taken = host(&mut turns, true);
+    taken.extend(lift_at(&mut turns, 232.0, 250.0, 424.0));
+    taken.extend(settle(&mut turns));
+    assert_eq!(ends(&taken), [TurnOutcome::Cancelled]);
 }
 
 #[test]
