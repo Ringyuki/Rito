@@ -10,6 +10,7 @@ mod curled_page;
 mod leaf;
 mod leaves;
 mod physics;
+mod turn_controller;
 mod turn_motion;
 
 /// That `actual` is within half a unit in the `digits`-th decimal place of

@@ -31,6 +31,7 @@ pub mod sheets;
 mod spec;
 pub mod spring;
 mod swing;
+pub mod turn_controller;
 pub mod turn_motion;
 pub mod turn_pack;
 pub mod turn_physics;
