@@ -104,7 +104,12 @@ describe('useRitoScrollReader', () => {
     await act(async () => {
       await current().load(new ArrayBuffer(1));
     });
-    expect(createReaderMock.mock.calls[0]?.[2]).toMatchObject({ width: 400, spread: 'scrolled' });
+    // Opened on the locator's chapter, which says how much of it matched.
+    expect(createReaderMock.mock.calls[0]?.[2]).toMatchObject({
+      width: 400,
+      spread: 'scrolled',
+      initialLocator: { href: 'two.xhtml' },
+    });
     expect(controller.mount).toHaveBeenCalledWith(host.firstElementChild);
     expect(controller.scrollToLocator).toHaveBeenCalledWith({ href: 'two.xhtml' });
     expect(current()).toMatchObject({

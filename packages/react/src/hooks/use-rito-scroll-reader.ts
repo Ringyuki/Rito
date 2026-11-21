@@ -22,7 +22,11 @@ export interface UseRitoScrollReaderOptions {
   /** How the book opens; it is laid out scrolled whatever `spread` says. */
   readonly reader: Omit<ReaderOptions, 'spread'>;
   readonly scroll?: ScrollControllerOptions | undefined;
-  /** Where the book opens: that line at the reading line once it is laid out. */
+  /**
+   * Where the book opens: that line at the reading line once it is laid
+   * out. An href that names no chapter of the book opens it at its start
+   * (`reader.initialLocatorMatch` is then `'bookStart'`).
+   */
   readonly initialLocator?: ReaderLocator | null | undefined;
 }
 
@@ -176,7 +180,13 @@ async function openStack(
   // Said before the book is opened, not after it was laid out for nothing.
   if (!canDrawWithWebGl2()) throw new WebGlUnavailableError();
   const canvas = document.createElement('canvas');
-  const reader = await createReader(data, canvas, { ...options.reader, spread: 'scrolled' });
+  // Opened on the locator's chapter: the line is in the first layout, and
+  // the open says how much of the locator matched.
+  const reader = await createReader(data, canvas, {
+    ...options.reader,
+    ...(options.initialLocator ? { initialLocator: options.initialLocator } : {}),
+    spread: 'scrolled',
+  });
   const stale = (): boolean => request !== requestRef.current;
   try {
     if (!stale()) await waitForInitialReaderLayout(reader, request, requestRef);
