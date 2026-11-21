@@ -22,7 +22,7 @@ typedef _Rig = ({
 _Rig _rig(
   WidgetTester tester, {
   FakePageSource? source,
-  RitoPageTurnPhysics physics = const RitoPageTurnPhysics(),
+  RitoPageTurnPhysics? physics,
   RitoPagePainter? paintPage,
   bool prewarm = true,
 }) {
@@ -908,6 +908,25 @@ void main() {
     expect(rig.turns.frame.offset, -140);
     rig.turns.dragCancel();
     await _settle(tester);
+  });
+
+  testWidgets('physics the application gives outrank the effect\'s own', (
+    tester,
+  ) async {
+    final rig = _rig(tester, physics: const RitoPageTurnPhysics());
+    rig.turns.effect = _PhysicalEffect();
+    await tester.pump();
+    expect(rig.turns.effectivePhysics, isNot(isA<_VerticalPhysics>()));
+    // A sideways drag is travel to the application's physics: a turn begins.
+    rig.turns
+      ..dragStart(const Offset(200, 500))
+      ..dragUpdate(const Offset(60, 500));
+    expect(rig.turns.frame.offset, -140);
+    rig.turns.dragCancel();
+    await _settle(tester);
+    // Without them, the effect's again.
+    rig.turns.physics = null;
+    expect(rig.turns.effectivePhysics, isA<_VerticalPhysics>());
   });
 
   testWidgets(

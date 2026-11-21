@@ -10,6 +10,15 @@ opens at its start instead of failing, and the first artifact's
 `requestArtifact` whose href names no chapter still fails, leaving the
 reader on its page. Reader protocol 10.
 
+### Physics given to the controller outrank an effect's
+
+`RitoPageTurnController(physics:)` is now optional, and physics passed to it
+move turns whatever effect is shown, as the web's `physics` option outranks
+an effect's; without them a turn moves by the physics its effect brings,
+else by the built-in rules. `physics` reads null when none were given, and
+the new `effectivePhysics` says which move turns now. The README shows an
+effect and physics of your own.
+
 ## 0.10.0 - 2026-11-05
 
 ### Vertical text set as Chromium sets it

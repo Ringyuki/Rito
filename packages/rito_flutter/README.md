@@ -166,6 +166,41 @@ turns.dispose();
 paper.dispose();
 ```
 
+A turn of your own is an effect and, if it should move differently, physics.
+A `RitoLayeredPageTurnEffect` returns the pages to draw each frame, bottom to
+top; `paint(scene, frame)` on a `RitoPageTurnEffect` draws the frame itself
+from the page images in `scene.pages`. Physics extend `RitoPageTurnPhysics`:
+its spring, how far a release must go or how fast it must be to turn, or
+`travel`, `resist`, `lands` and `settle` replaced outright. Physics passed to
+the controller outrank those an effect brings (`RitoPageTurnEffect.physics`).
+
+```dart
+/// The page that leaves fades where it is; the one that comes slides in
+/// from a third of the way across.
+final class Dissolve extends RitoLayeredPageTurnEffect {
+  const Dissolve();
+
+  @override
+  List<RitoPageTurnLayer> layers(RitoPageTurnFrame frame) {
+    final incoming = frame.incoming;
+    if (incoming == null) return const [RitoPageTurnLayer(RitoPageSlot.current, 0)];
+    final from = incoming == RitoPageSlot.next ? 1.0 : -1.0;
+    final progress = frame.progress;
+    return [
+      RitoPageTurnLayer(RitoPageSlot.current, 0, opacity: 1 - progress),
+      RitoPageTurnLayer(incoming, from * frame.width * (1 - progress) / 3, opacity: progress),
+    ];
+  }
+}
+
+final turns = RitoPageTurnController(
+  reader: reader,
+  vsync: this,
+  effect: const Dissolve(),
+  physics: const RitoPageTurnPhysics(spring: RitoSpring.snappy, swipeThreshold: 30),
+);
+```
+
 A full integration reference lives in `doc/INTEGRATION.md`.
 
 ## Fonts

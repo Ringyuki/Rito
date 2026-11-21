@@ -120,7 +120,7 @@ final class _RitoPageTurnViewState extends State<RitoPageTurnView> {
                     }
                     ..onCancel = controller.dragCancel
                     ..alongTheTurn = (down, moved) => alongTheTurn(
-                      controller.effectiveEffect.physics ?? controller.physics,
+                      controller.effectivePhysics,
                       down,
                       moved,
                       controller.width,

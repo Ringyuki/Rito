@@ -34,12 +34,14 @@ final class RitoPageTurnController extends ChangeNotifier {
   RitoPageTurnController({
     required this.reader,
     required TickerProvider vsync,
-    RitoPageTurnPhysics physics = const RitoPageTurnPhysics(),
+    RitoPageTurnPhysics? physics,
     RitoPageTurnEffect effect = RitoPageTurnEffects.slide,
     RitoPagePainter paintPage = ritoPaintArtifactPage,
     this.respectReducedMotion = true,
     this.prewarm = true,
-  }) : _motion = RitoTurnMotion(effect.physics ?? physics),
+  }) : _motion = RitoTurnMotion(
+         physics ?? effect.physics ?? const RitoPageTurnPhysics(),
+       ),
        _physics = physics,
        _effect = effect,
        _revision = reader.revision {
@@ -178,17 +180,23 @@ final class RitoPageTurnController extends ChangeNotifier {
     );
   }
 
-  /// How turns move, unless the effect brings physics of its own.
-  RitoPageTurnPhysics get physics => _physics;
-  set physics(RitoPageTurnPhysics value) {
+  /// How turns move, in place of the physics the effect brings and of the
+  /// built-in rules; null leaves them (see [effectivePhysics]).
+  RitoPageTurnPhysics? get physics => _physics;
+  set physics(RitoPageTurnPhysics? value) {
     _physics = value;
     _applyPhysics();
   }
 
-  RitoPageTurnPhysics _physics;
+  RitoPageTurnPhysics? _physics;
+
+  /// How turns move now: [physics], else the physics [effectiveEffect]
+  /// brings, else the built-in rules.
+  RitoPageTurnPhysics get effectivePhysics =>
+      _physics ?? effectiveEffect.physics ?? const RitoPageTurnPhysics();
 
   void _applyPhysics() {
-    _motion.physics = effectiveEffect.physics ?? _physics;
+    _motion.physics = effectivePhysics;
   }
 
   /// The configured effect; see [effectiveEffect].
