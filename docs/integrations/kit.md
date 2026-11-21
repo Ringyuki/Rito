@@ -113,11 +113,14 @@ new ratio — it sets `auto` and the browser smooths it, as it smooths the page.
 
 A turn is physics plus an effect. The physics say how it moves — the drag, the
 decision to turn, the way to rest and the pull at the first and last spread — and
-the effect what a frame shows. The built-in physics are a spring: a release hands
-the finger's momentum to it, it is solved in closed form, so a turn follows the
-same path at any refresh rate, and the presets never bounce: past the neighbour,
-or back past the starting page, there may be no page to show. A custom spring
-damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
+the effect what a frame shows. The built-in physics are the engine's
+(`@ritojs/core`'s turn motion, the same on every host to the bit): a spring that a
+release hands the finger's momentum to — its speed measured from when it came down,
+over its last 100 ms, and none once it has held still 40 ms, as touch toolkits measure
+it, so a short drag held before it lifts goes back — solved in closed form, so a turn follows
+the same path at any refresh rate, and whose presets never bounce: past the
+neighbour, or back past the starting page, there may be no page to show. A custom
+spring damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
 
 - `effect`: `'slide'` (the spread moves, the neighbour follows), `'cover'` (later
   pages slide over earlier ones with a shadow), `'fade'` (cross-fade in place) or
@@ -184,7 +187,10 @@ damped below critical (`damping < 2√stiffness`) bounces, and shows that gap.
 Change any of it live with `controller.configureTransition({ effect: 'cover' })`.
 
 `createPaperTurn()` is a painted effect with physics of its own: the page turns as
-paper does. With two pages a spread it is a leaf of a book. The leaf stays bound at
+paper does. Its `motion` option sets the numbers the paper moves by in place of the
+engine's defaults (`PaperTurnMotion`, each optional): the leaf spring, how long a
+leaf at its own pace takes, how far a finger must pull and how far it may come back
+or how fast fling back for a curled page to turn, and a two-page leaf's thresholds. With two pages a spread it is a leaf of a book. The leaf stays bound at
 the spine, bends round a cone as it lifts — arched in the air, the corner it is
 taken by leading — swings over the spine, and comes down on the far side edge
 first, the arch settling after. Paper bends without stretching, and the leaf is
@@ -245,16 +251,24 @@ import { createPaperTurn } from '@ritojs/kit';
 controller.configureTransition({ effect: createPaperTurn() });
 ```
 
-`transitionStart` and `transitionEnd` bracket every visible turn: each start is
-answered by exactly one end, whose `outcome` says whether the turn landed
-(`committed`), went back (`cancelled`), or was cut off by a relayout or a jump
-(`interrupted`). A newer turn, by key or by a finger that starts to drag, settles the
-turn in flight at once, which reports `committed`, or `cancelled` if it was already
-heading back; its picture is not stopped: the newer turn begins where the page is and
-as fast as it moves, so a second turn, a turn back and a finger all take the page on
-without a jump. A finger that only comes down on a moving page leaves it alone.
-`rito_flutter` reports
-the same outcomes; one table of scenarios holds both test suites to them. In between, `transitionProgress` reports every painted
+When a turn begins, lands and ends, and what a finger, a key or a jump does to a
+turn on screen, is the engine's (`TurnController`), one model for every host; the
+controller carries it out. `transitionStart` and `transitionEnd` bracket every
+visible turn: each start is answered by exactly one end, whose `outcome` says
+whether the turn landed (`committed`), went back (`cancelled`), or was cut off by a
+relayout or a jump (`interrupted`). A turn lands the reader on its spread when it is
+decided — a key's or an API call's as it begins, a finger's when it lets go past the
+threshold or fast enough — and `spreadChange` reports it then, between the start and
+the end; `currentSpread` changes only there. A drag the finger still holds, or one
+that goes back, never moves the reader. Each key pressed during a turn turns a page;
+a key the way a turn is going back sends it on; a finger holding the page keeps keys
+from it. A newer turn settles the turn in flight at once; its picture is not stopped:
+the newer turn begins where the page is and as fast as it moves, so a second turn, a
+turn back and a finger all take the page on without a jump. A finger that only comes
+down on a moving page leaves it alone. A turn whose page is not painted yet waits
+for it, and anything else the reader is asked meanwhile takes its place.
+`rito_flutter` reports the same outcomes; one table of scenarios holds both test
+suites to them. In between, `transitionProgress` reports every painted
 frame with `progress` from 0 at rest to 1 on arrival, for chrome that follows the
 page. In React, `useReaderTransition(controller)` gives `{ isTransitioning,
 direction }` and `useReaderTransitionProgress(controller)` the progress.

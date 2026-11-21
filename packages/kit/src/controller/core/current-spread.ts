@@ -7,12 +7,8 @@ import type { Internals } from './internals';
  * anonymous closures).
  */
 export type CurrentSpreadWriteReason =
-  | 'navigation-start'
-  | 'navigation-cancel'
-  | 'jump'
-  | 'settle-commit'
-  | 'settle-snap-back'
-  | 'layout-commit';
+  /** A turn decided: the reader lands it at once, its page the one shown. */
+  'turn-land' | 'jump' | 'layout-commit';
 
 interface SpreadMoveRecord {
   from: number;

@@ -5,7 +5,10 @@ import type { Internals } from '../src/controller/facade/types';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
 import { bindPointerEvents } from '../src/controller/wiring/pointer';
 import { registerSelectionInteractionOwner } from '../src/interaction/selection/selection-interaction-owner';
+import type { ReaderControllerEvents } from '../src/controller/types';
+import { createEmitter } from '../src/utils/event-emitter';
 import { createDomTarget, pointer, pointerPosition } from './helpers/dom-input';
+import { createPoolHarness, createRealTurns } from './helpers/real-turns';
 
 describe('selection input navigation ownership', () => {
   it('retires older deferred navigation before a naturally empty native click', () => {
@@ -36,7 +39,6 @@ describe('selection input navigation ownership', () => {
       spreads: [{}, {}],
       notifyActiveSpread: vi.fn(),
     } as unknown as Reader;
-    const goToTarget = vi.fn();
     const onNavigationCancelled = vi.fn();
     const internals = {
       currentSpread: 0,
@@ -48,20 +50,20 @@ describe('selection input navigation ownership', () => {
         selectionProjectionTransfer: null,
       },
     } as unknown as Internals;
+    const { pool, slots } = createPoolHarness((index) => index === 0 || contentReady);
+    const emitter = createEmitter<ReaderControllerEvents>();
+    const turns = createRealTurns({ internals, reader, pool, emitter });
     const nav = createNavigation({
       getReader: () => reader,
       getCurrentSpread: () => internals.currentSpread,
       setCurrentSpread: (index: number) => {
         internals.currentSpread = index;
       },
-      emitter: { emit: vi.fn() },
-      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => contentReady),
-      },
+      emitter,
+      td: turns.td,
+      turnTargets: turns.turnTargets,
+      frameDriver: turns.frameDriver,
+      pool,
       contentRenderer: vi.fn(),
       onNavigationIntent: vi.fn(),
       onContentInteractionIntent: () => {
@@ -82,6 +84,8 @@ describe('selection input navigation ownership', () => {
     );
 
     nav.goToSpread(1);
+    // The turn waits for its page.
+    expect(turns.td.turning).toBe(false);
     dom.emit('pointerdown', pointer(1, 10, 20));
     activeGesture = null;
     selectionState = 'idle';
@@ -90,9 +94,11 @@ describe('selection input navigation ownership', () => {
     dom.emit('pointerup', pointer(1, 10, 20));
 
     expect(internals.currentSpread).toBe(0);
-    expect(goToTarget).not.toHaveBeenCalled();
+    expect(turns.td.turning).toBe(false);
+    expect(slots.curr).toBe(0);
     expect(onNavigationCancelled).not.toHaveBeenCalled();
     expect(click).toHaveBeenCalledWith({ x: 10, y: 20 });
     dispose();
+    turns.dispose();
   });
 });

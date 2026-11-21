@@ -13,7 +13,6 @@ use crate::frame::{Frame, Phase, Scene, Touch};
 use crate::hold::{Point, View};
 use crate::leaves::{in_the_air, Leaf};
 use crate::math::{clamp, max, or_one, round, sign};
-use crate::physics::LEAST_PULL;
 use crate::swing::LeafTurn;
 
 /// A page lying flat taken by a corner leans by this much, as a tangent.
@@ -195,6 +194,7 @@ fn brought_to(
     seconds: f64,
 ) -> (f64, f64) {
     let shape = leaf.shape;
+    let least_pull = leaf.motion.least_pull;
     let held = leaf
         .curled
         .as_mut()
@@ -206,7 +206,7 @@ fn brought_to(
     let meets = max(0.0, shape.spine + shape.width - touch.position.x);
     let way = if read.forward { 1.0 } else { -1.0 };
     let gone = way * (touch.origin.x - touch.position.x);
-    if !held.set_off && frame.incoming.is_some() && gone >= LEAST_PULL * scene.css_pixel {
+    if !held.set_off && frame.incoming.is_some() && gone >= least_pull * scene.css_pixel {
         held.set_off = true;
         if way * (meets - own) > 0.0 {
             held.coming = Some(Coming {

@@ -2,6 +2,7 @@ import type { Reader, ReaderLocator, TocEntry } from '@ritojs/core';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { ContentRenderer, PageBufferPool } from '../../painter/buffer-pool';
+import type { TurnTargets } from '../wiring/turns';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { ReaderControllerEvents } from '../types';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
@@ -18,7 +19,6 @@ import {
 import { continueBookTurn, startBookNavigation } from './book-navigation';
 import {
   createLocatorNavigator,
-  startGestureNavigation,
   startNavigation,
   startRelativeNavigation,
 } from './spread-navigation';
@@ -27,7 +27,6 @@ import { navigateReaderLocator, navigateTocEntry } from './locator-navigation';
 type Machine = machine.NavigationMachine;
 type EntryActionName =
   | 'goToSpread'
-  | 'startGestureNavigation'
   | 'nextSpread'
   | 'prevSpread'
   | 'navigateToTocEntry'
@@ -48,6 +47,8 @@ export interface NavigationDeps {
   frameDriver: FrameDriver;
   pool: PageBufferPool;
   contentRenderer: ContentRenderer;
+  /** Where the kit's turns go: the spread a turn each way brings in. */
+  turnTargets: TurnTargets;
   /** Invalidates older async position work as soon as a navigation intent is accepted. */
   onNavigationIntent?: () => void;
   /** Supersedes pending content interactions for every accepted navigation/position intent. */
@@ -61,11 +62,6 @@ export interface NavigationDeps {
 
 export interface NavigationActions {
   goToSpread(index: number, source?: machine.NavigationIntentSource): void;
-  startGestureNavigation(
-    index: number,
-    onTransitionStart: () => void,
-    onUnavailable?: () => void,
-  ): GestureNavigationToken;
   nextSpread(source?: machine.NavigationIntentSource): void;
   prevSpread(source?: machine.NavigationIntentSource): void;
   navigateToTocEntry(entry: TocEntry): void;
@@ -106,13 +102,8 @@ export interface NavigationActions {
   dispose(): void;
 }
 
-/** Cancels a gesture navigation only while it is still waiting for content. */
-export interface GestureNavigationToken {
-  cancel(): void;
-}
-
 /** The navigation-owned subset of the visible-spread write reasons. */
-export type NavigationSpreadWriteReason = 'navigation-start' | 'navigation-cancel' | 'jump';
+export type NavigationSpreadWriteReason = 'jump';
 
 export function createNavigation(deps: NavigationDeps): NavigationActions {
   const nav = machine.createNavigationMachine();
@@ -135,9 +126,6 @@ function createEntryActions(
   return {
     goToSpread(index, source) {
       startNavigation(nav, deps, index, source);
-    },
-    startGestureNavigation(index, onTransitionStart, onUnavailable) {
-      return startGestureNavigation(nav, deps, index, onTransitionStart, onUnavailable);
     },
     nextSpread(source) {
       startRelativeNavigation(nav, deps, 1, source);
@@ -191,7 +179,7 @@ function createRuntimeActions(
 ): Pick<NavigationActions, RuntimeActionName> {
   return {
     notifyContentReady(spreadIndex) {
-      if (!nav.disposed) continuePendingNavigation(nav, deps, spreadIndex);
+      if (!nav.disposed) continuePendingNavigation(deps, spreadIndex);
     },
     notifyLayoutCommitted() {
       if (!nav.disposed) continueBookTurn(nav, deps);

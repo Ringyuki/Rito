@@ -670,7 +670,7 @@ fn artifact_fixture() -> ReaderArtifact {
         revision_version: u32::MAX - 1,
         artifact_id: (1u64 << 57) + 4,
         locator: locator_fixture(),
-        matched_by: ReaderLocatorMatch::SourceRange,
+        matched_by: ReaderLocatorMatch::BookStart,
         local_page_index: 9,
         local_spread_index: 5,
         local_page_indexes: vec![9, 10],

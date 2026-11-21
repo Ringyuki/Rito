@@ -1,6 +1,6 @@
 import type { SlotPosition } from '../../painter/types';
 import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
-import { transitionLifecycle } from '../core/transition-lifecycle';
+import { abortTransition } from '../core/transition-lifecycle';
 import { claimNavigation, type NavigationClaim } from './claim';
 import type { NavigationDeps } from './index';
 import type { NavigationMachine } from './machine';
@@ -76,14 +76,13 @@ export function jumpToSpreadIfReady(
 }
 
 /**
- * A jump takes the page before the turn in flight arrives: the turn is
- * reported cut off, then landed at once so the jump leaves from its page.
- * What a turn already cut into had left is stopped with it.
+ * A jump takes the page before the turn in flight arrives: the turn ends
+ * interrupted where it is, and what a turn already cut into had left is
+ * stopped with it.
  */
 function interruptTurnInFlight(deps: NavigationDeps): void {
   if (!deps.td.isAnimating) return;
-  if (deps.td.turning) transitionLifecycle(deps.emitter).end('interrupted');
-  deps.td.forceSettle();
+  abortTransition(deps.td, deps.emitter, deps.turnTargets);
 }
 
 function commitJump(deps: NavigationDeps, claim: NavigationClaim, target: number): boolean {

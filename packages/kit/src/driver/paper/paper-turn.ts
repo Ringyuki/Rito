@@ -3,6 +3,7 @@ import {
   type PaperTurnFrame,
   type PaperTurnLaid,
   type PaperTurnModel,
+  type PaperTurnMotion,
 } from '@ritojs/core';
 
 import type {
@@ -26,6 +27,12 @@ export interface PaperTurnOptions {
   readonly paper?: string;
   /** The clock the leaf moves by, in ms. The page's own when omitted. */
   readonly now?: () => number;
+  /**
+   * The numbers the paper moves by, in place of the engine's defaults
+   * (`@ritojs/core`'s `PaperTurnMotion`): how a leaf let go comes to rest,
+   * and how far or how fast a finger must pull for it to turn.
+   */
+  readonly motion?: Partial<PaperTurnMotion> | undefined;
 }
 
 interface PaperTurn {
@@ -86,6 +93,7 @@ export function paperTurnWith(
     said: false,
   };
   const take = (loaded: PaperTurnModel): void => {
+    if (options.motion) loaded.configure(options.motion);
     state.model = loaded;
     state.physics = paperPhysics(loaded, state.now);
   };

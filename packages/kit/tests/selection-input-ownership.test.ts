@@ -109,7 +109,7 @@ describe('selection physical input ownership', () => {
     harness.dom.emit('touchmove', touchEvent([moved], [moved], 10));
     harness.dom.emit('touchend', touchEvent([], [moved]));
 
-    expect(harness.startGestureNavigation).not.toHaveBeenCalled();
+    expect(harness.fingerDown).not.toHaveBeenCalled();
     expect(harness.selection.down).not.toHaveBeenCalled();
     expect(harness.selection.clear).not.toHaveBeenCalled();
     expect(harness.tap).not.toHaveBeenCalled();

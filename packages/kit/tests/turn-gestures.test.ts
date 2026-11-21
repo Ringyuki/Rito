@@ -134,6 +134,19 @@ const SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
+    // Rests on the page, then nudges it and lifts: its speed is measured
+    // from when it came down, so the nudge is no flick.
+    name: 'rest-then-nudge',
+    frame: 16,
+    until: 1000,
+    touches: [
+      ['down', 0, 250, 300],
+      ['move', 30, 244, 300],
+      ['move', 60, 240, 300],
+      ['up', 70, 240, 300],
+    ],
+  },
+  {
     name: 'key-next',
     frame: 16,
     until: 1000,
@@ -220,13 +233,40 @@ function play(scenario: Scenario, model?: PaperTurnModel): Recorded {
 const NOTE =
   'How a finger turns a page, frame by frame, the same in @ritojs/kit and rito_flutter: each scenario plays its touches (what, ms, x, y in the view; `next` and `prev` are keys) with a frame every `frame` ms up to `until`, the page `width` px wide and neighbours both ways; `frames` is what the turn draws at each frame (null for none), `starts` and `ends` each turn it starts and how it ends. Written by packages/kit/tests/turn-gestures.test.ts (RITO_EMIT_TURN_GESTURES=1).';
 
+/** How near a number must be to the fixture's: the tolerance every host replays it to. */
+const WITHIN = 1e-6;
+
+/** That `actual` is `expected`, each number within `WITHIN` of it. */
+function near(actual: unknown, expected: unknown, path: string): void {
+  if (typeof expected === 'number' && typeof actual === 'number') {
+    expect(
+      Math.abs(actual - expected),
+      `${path}: ${String(actual)} vs ${String(expected)}`,
+    ).toBeLessThan(WITHIN);
+    return;
+  }
+  if (expected === null || typeof expected !== 'object') {
+    expect(actual, path).toEqual(expected);
+    return;
+  }
+  expect(typeof actual, path).toBe('object');
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual ?? {})]);
+  for (const key of keys) {
+    near(
+      (actual as Record<string, unknown>)[key],
+      (expected as Record<string, unknown>)[key],
+      `${path}.${key}`,
+    );
+  }
+}
+
 /** Holds what `recorded` says to `file`, or writes it there. */
 function heldTo(file: string, physics: string, scenarios: readonly Recorded[]): void {
   const recorded = { note: NOTE, physics, width: WIDTH, scenarios };
   const text = `${JSON.stringify(recorded, null, 1)}\n`;
   if (emitting) writeFileSync(file, text);
   expect(existsSync(file), 'the fixture is missing; emit it').toBe(true);
-  expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(JSON.parse(text));
+  near(JSON.parse(text), JSON.parse(readFileSync(file, 'utf8')), 'fixture');
 }
 
 describe('a finger turning pages, frame by frame', () => {

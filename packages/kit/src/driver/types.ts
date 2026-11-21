@@ -6,7 +6,7 @@ import {
   type TransitionPhase,
   type TransitionTouch,
 } from './effects';
-import type { TransitionPhysics, TransitionSettle } from './physics';
+import type { TransitionPhysics } from './physics';
 
 /** What the FrameDriver should draw each frame. */
 export type DrawInstruction =
@@ -29,20 +29,22 @@ export type DrawInstruction =
  */
 export type LeavingNeighbour = 'next' | 'prev' | 'none';
 
-/** Transition state machine modes. */
+/**
+ * What is on screen, told as the driver's modes: the engine's page turns
+ * (`@ritojs/core`'s `TurnController`) and the motion of the turn.
+ */
 export type TransitionMode =
   | { readonly kind: 'idle' }
   | {
       readonly kind: 'tracking';
       readonly direction: 'forward' | 'backward';
-      readonly outgoingSpread: number;
-      readonly incomingSpread: number | null;
-      dx: number;
+      /** Whether a neighbour lies the way the turn goes; none for a pull against the end of the book. */
+      readonly hasIncoming: boolean;
+      readonly dx: number;
       /** Finger velocity, px/ms. */
-      vx: number;
-      lastSampleAt: number;
-      /** The finger holding the turn, when the gesture reports where it is. */
-      touch: TransitionTouch | null;
+      readonly vx: number;
+      /** The finger holding the turn. */
+      readonly touch: TransitionTouch | null;
       /** Where the turn was when the finger took it: what its travel is added to. */
       readonly from: number;
       /** What the turn this one began from left in the frame; null when it began at rest. */
@@ -51,29 +53,20 @@ export type TransitionMode =
   | {
       readonly kind: 'settling';
       readonly direction: 'forward' | 'backward';
-      readonly outgoingSpread: number;
-      readonly incomingSpread: number | null;
       readonly target: number;
-      dx: number;
-      /** Spring velocity, px/s. */
-      vx: number;
+      readonly dx: number;
+      /** Velocity, px/s. */
+      readonly vx: number;
       readonly touch: TransitionTouch | null;
-      /** The physics' own way to rest; null for the built-in spring. */
-      readonly settle: TransitionSettle | null;
-      /** Seconds since `settle` began. */
-      elapsed: number;
       readonly leaving: LeavingNeighbour | null;
     }
   | {
       readonly kind: 'boundary-elastic';
       readonly direction: 'forward' | 'backward';
-      readonly slotSpread: number;
-      dx: number;
-      /** Spring velocity, px/s. */
-      vx: number;
+      readonly dx: number;
+      /** Velocity, px/s. */
+      readonly vx: number;
       readonly touch: TransitionTouch | null;
-      readonly settle: TransitionSettle | null;
-      elapsed: number;
       readonly leaving: LeavingNeighbour | null;
     }
   | {
@@ -84,22 +77,12 @@ export type TransitionMode =
        */
       readonly kind: 'finishing';
       readonly leaving: LeavingNeighbour;
-      dx: number;
+      readonly dx: number;
       /** px/s. */
-      vx: number;
-      /** The motion the turn was already on, when its physics brought one. */
-      readonly settle: TransitionSettle | null;
-      elapsed: number;
-      /** Added to what `settle` says: the turn's coordinates moved when it landed. */
+      readonly vx: number;
+      /** Added to the motion it was on: the turn's coordinates moved when it landed. */
       readonly shift: number;
     };
-
-/** Callback when a transition settles (animation completes). */
-export interface SettledEvent {
-  readonly direction: 'forward' | 'backward';
-  readonly committed: boolean;
-  readonly targetSpread: number;
-}
 
 /** Options for transition behavior. */
 export interface TransitionDriverOptions {

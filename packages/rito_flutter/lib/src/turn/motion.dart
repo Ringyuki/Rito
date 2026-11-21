@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' show Offset;
 
 import 'package:flutter/physics.dart';
 
+import '../native/bindings.dart';
 import 'effects.dart';
 
 /// A damped spring: stiffness in 1/s², damping in 1/s. The presets are
@@ -71,13 +73,16 @@ final class RitoPageTurnLeftover {
   final bool samePages;
 }
 
-/// How a page turn moves, whatever it looks like. The defaults are the
-/// web reader's (`@ritojs/kit`), so a book turns the same on both.
+/// How a page turn moves, whatever it looks like. Its numbers are the
+/// engine's built-in rules' (the same on the web, `@ritojs/kit`, and on
+/// every host); the defaults are the ones both readers have always turned
+/// pages with.
 ///
 /// Extend it to move a turn another way: [travel] reads the finger,
 /// [resist] holds the page at the ends of the book, [lands] decides a
 /// release, [settle] carries the turn to rest and [begins] says where a
-/// turn that cuts into another starts.
+/// turn that cuts into another starts. Each answers null to leave the
+/// decision to the engine's rule, as these do.
 class RitoPageTurnPhysics {
   const RitoPageTurnPhysics({
     this.spring = RitoSpring.standard,
@@ -87,6 +92,7 @@ class RitoPageTurnPhysics {
     this.elasticFactor = 0.55,
   });
 
+  /// The spring that carries a turn nothing holds to rest.
   final RitoSpring spring;
 
   /// A drag released this far (logical px, after projecting its velocity
@@ -114,94 +120,38 @@ class RitoPageTurnPhysics {
       travel(origin, position);
 
   /// Where a pull of [travel] px leaves the page when no neighbour lies
-  /// that way: it stretches like a rubber band.
-  double resist(double travel, double width) {
-    if (travel == 0 || width <= 0) return 0;
-    final stretch = 1 - 1 / (travel.abs() / width + 1);
-    return travel.sign * stretch * width * elasticFactor;
-  }
+  /// that way. Null for the engine's rule: it stretches like a rubber band,
+  /// never past [elasticFactor] of a page.
+  double? resist(double travel, double width) => null;
 
   /// Whether a turn let go turns the page; otherwise it goes back. Not
   /// asked at the ends of the book, where there is no page to turn to.
   ///
-  /// The built-in rule goes by how far the finger carried the turn: where
-  /// the turn was when the finger took it says nothing of what the finger
-  /// meant.
-  bool lands(RitoPageTurnRelease release) {
-    final velocity = release.velocity;
-    final carried = release.offset - release.from;
-    final toward = release.forward ? -1.0 : 1.0;
-    // Dragged back past where it took it, or pulling back: the page stays.
-    if (carried * toward < 0 || velocity * toward < -50) return false;
-    final seconds = projection.inMicroseconds / 1e6;
-    return (carried + velocity * seconds).abs() > swipeThreshold ||
-        velocity.abs() > velocityCommit;
-  }
+  /// Null for the engine's rule, which goes by how far the finger carried
+  /// the turn (where the turn was when the finger took it says nothing of
+  /// what the finger meant): dragged back past where it took it, or pulling
+  /// back, the page stays; otherwise it turns when that distance, its
+  /// velocity projected over [projection] added, passes [swipeThreshold],
+  /// or when the velocity passes [velocityCommit].
+  bool? lands(RitoPageTurnRelease release) => null;
 
-  /// Where a turn that cuts into another begins, and how fast: by default
-  /// where the picture is and as fast, so nothing jumps. Physics that answer
-  /// otherwise leave what was left of the other turn to their effect: the
-  /// frames that follow are of the new turn alone.
-  ({double offset, double velocity}) begins(RitoPageTurnLeftover leftover) =>
-      (offset: leftover.offset, velocity: leftover.velocity);
+  /// Where a turn that cuts into another begins, and how fast. Null for the
+  /// engine's rule: where the picture is and as fast, so nothing jumps.
+  /// Physics that answer otherwise leave what was left of the other turn to
+  /// their effect: the frames that follow are of the new turn alone.
+  ({double offset, double velocity})? begins(RitoPageTurnLeftover leftover) =>
+      null;
 
   /// The motion of a turn nothing holds, from [from] at [velocity] to
   /// [to]: the neighbour, a page width away, or 0, the page it left. A
   /// turn left alone stays on screen until the simulation is done, then
-  /// stands at [to].
-  Simulation settle({
+  /// stands at [to]. Null for the engine's [spring], which is at rest once
+  /// what motion remains is sub-pixel.
+  Simulation? settle({
     required double from,
     required double velocity,
     required double to,
-  }) => _SpringSettle(spring, from, velocity, to);
-}
-
-/// The spring toward [to]. It is at rest once what motion remains is
-/// sub-pixel: within half a pixel, and not fast enough to carry more than
-/// half a pixel further.
-final class _SpringSettle extends Simulation {
-  _SpringSettle(RitoSpring spring, double from, double velocity, this.to)
-    : _omega = math.sqrt(spring.stiffness),
-      _spring = SpringSimulation(
-        SpringDescription(
-          mass: 1,
-          stiffness: spring.stiffness,
-          damping: spring.damping,
-        ),
-        from - to,
-        0,
-        _boundedVelocity(spring, from - to, velocity),
-      );
-
-  final double to;
-  final double _omega;
-  final SpringSimulation _spring;
-
-  @override
-  double x(double time) => to + _spring.x(time);
-
-  @override
-  double dx(double time) => _spring.dx(time);
-
-  @override
-  bool isDone(double time) =>
-      _spring.x(time).abs() < 0.5 && _spring.dx(time).abs() / _omega < 0.5;
-
-  /// A spring that does not oscillate passes its target only when it
-  /// starts toward it faster than ω times the distance; bounding a
-  /// handed-over velocity there keeps it on its side of the target, with
-  /// the motion continuous. An oscillating spring was chosen to bounce.
-  static double _boundedVelocity(
-    RitoSpring spring,
-    double offset,
-    double velocity,
-  ) {
-    final omega = math.sqrt(spring.stiffness);
-    if (spring.damping < 2 * omega || offset == 0) return velocity;
-    final limit = omega * offset.abs();
-    final toward = -offset.sign * velocity;
-    return toward > limit ? -offset.sign * limit : velocity;
-  }
+  }) => null;
 }
 
 enum RitoTurnMotionPhase {
@@ -214,97 +164,96 @@ enum RitoTurnMotionPhase {
   finishing,
 }
 
-/// The neighbour a turn that was cut into left in the frame; [none] for a
-/// pull against the end of the book, which shows no neighbour.
-enum _Leaving { next, previous, none }
+/// The numbers the engine's rules go by, as [physics] gives them.
+List<double> ritoTurnPhysicsNumbers(RitoPageTurnPhysics physics) => <double>[
+  physics.spring.stiffness,
+  physics.spring.damping,
+  physics.swipeThreshold,
+  physics.velocityCommit,
+  physics.projection.inMicroseconds / 1e6,
+  // A finger pulling the turn back faster than this (px/s) leaves the page.
+  50,
+  physics.elasticFactor,
+];
 
-/// The motion of one page turn: the finger while dragging, then its
-/// physics' simulation to the neighbour or back. Displacement is in logical
-/// px, negative while turning forward. Pure: the caller supplies time.
+/// The motion of one page turn: the engine's (the same on every host, to
+/// the bit), with [physics] answering wherever it decides otherwise.
+/// Displacement is in logical px, negative while turning forward. Pure: the
+/// caller supplies time.
 ///
 /// A turn that another cuts into is not stopped: [carryOn] settles its
 /// outcome and leaves its picture going, and the turn that cuts in begins
 /// where that picture is.
 final class RitoTurnMotion {
-  RitoTurnMotion(this.physics);
+  RitoTurnMotion(RitoPageTurnPhysics physics)
+    : _physics = physics,
+      _native = RitoNativeTurnMotion(ritoTurnPhysicsNumbers(physics));
 
-  RitoPageTurnPhysics physics;
+  final RitoNativeTurnMotion _native;
+  RitoPageTurnPhysics _physics;
+  double _width = 0;
+
+  /// The physics' own motion carrying the turn, and which of the engine's
+  /// motions it carries.
+  Simulation? _settle;
+  double _settleGeneration = 0;
+
+  RitoPageTurnPhysics get physics => _physics;
+  set physics(RitoPageTurnPhysics value) {
+    _physics = value;
+    _configure();
+  }
 
   /// The page width a turn travels.
-  double width = 0;
+  double get width => _width;
+  set width(double value) {
+    _width = value;
+    _configure();
+  }
 
-  RitoTurnMotionPhase _phase = RitoTurnMotionPhase.idle;
-  bool _forward = true;
-  bool _hasIncoming = true;
-  double _offset = 0;
-  double _velocity = 0;
-  double _target = 0;
-  Simulation? _settling;
-  double _elapsed = 0;
+  void _configure() {
+    _native.physics.setAll(0, ritoTurnPhysicsNumbers(_physics));
+    _native.configure(_width);
+  }
 
-  /// Added to what the simulation says: the coordinates moved when the turn
-  /// it was made for landed.
-  double _shift = 0;
+  Float64List get _state => _native.state;
 
-  /// The turn's last few places under the finger, and when (ms).
-  final _samples = <({double offset, double at})>[];
-
-  /// How fast the finger carries the turn, logical px/ms.
-  double _fingerSpeed = 0;
-
-  /// Where the turn was when the finger took it: what its travel adds to.
-  double _from = 0;
-
-  /// What the turn this one began from left in the frame; null when it
-  /// began at rest.
-  _Leaving? _leaving;
-
-  RitoTurnMotionPhase get phase => _phase;
-  double get offset => _offset;
+  RitoTurnMotionPhase get phase =>
+      RitoTurnMotionPhase.values[_state[0].toInt()];
+  double get offset => _state[3];
 
   /// How fast the turn is moving, logical px/s; 0 while a finger holds it.
-  double get velocity =>
-      _phase == RitoTurnMotionPhase.settling ||
-          _phase == RitoTurnMotionPhase.finishing
-      ? _velocity
-      : 0;
+  double get velocity => _state[4];
 
   /// Whether the turn goes toward the next page.
-  bool get forward => _forward;
+  bool get forward => _state[1] == 1;
 
   /// Whether a neighbour lies the way the turn goes.
-  bool get hasIncoming => _hasIncoming;
+  bool get hasIncoming => _state[2] == 1;
 
-  /// Whether the spring is carrying the turn to the neighbour.
-  bool get committing => _phase == RitoTurnMotionPhase.settling && _target != 0;
+  /// How fast the finger carries the turn, logical px/s, from where the
+  /// turn was at its last few samples.
+  double get fingerVelocity => _state[7];
+
+  /// Whether the turn goes to the neighbour by itself.
+  bool get committing => _state[11] == 1;
 
   /// Whether anything is moving by itself.
   bool get moving =>
-      _phase == RitoTurnMotionPhase.settling ||
-      _phase == RitoTurnMotionPhase.finishing;
+      phase == RitoTurnMotionPhase.settling ||
+      phase == RitoTurnMotionPhase.finishing;
 
   /// Whether the frame is still the picture of the turn this one cut into:
   /// it has not crossed its own start yet.
-  bool get onFarSide =>
-      _phase != RitoTurnMotionPhase.finishing &&
-      _leaving != null &&
-      (_forward ? _offset > 0 : _offset < 0);
+  bool get onFarSide => _state[10] == 1;
 
   /// The neighbour in the frame: the turn's own, or the one the turn it
   /// cut into was leaving while this one is on the far side of its start.
-  RitoPageSlot? get showing {
-    final leaving = _leaving;
-    if (leaving != null &&
-        (_phase == RitoTurnMotionPhase.finishing || onFarSide)) {
-      return switch (leaving) {
-        _Leaving.next => RitoPageSlot.next,
-        _Leaving.previous => RitoPageSlot.previous,
-        _Leaving.none => null,
-      };
-    }
-    if (!_hasIncoming) return null;
-    return _forward ? RitoPageSlot.next : RitoPageSlot.previous;
-  }
+  RitoPageSlot? get showing => switch (_state[9]) {
+    1 => RitoPageSlot.next,
+    2 => RitoPageSlot.previous,
+    _ => null,
+  };
 
   /// A finger takes the turn at [at] ms: from rest, or from what a turn it
   /// cut into had left. Its speed is measured from there.
@@ -313,212 +262,144 @@ final class RitoTurnMotion {
     required bool hasIncoming,
     required double at,
   }) {
-    final begun = _beginning(forward: forward, hasIncoming: hasIncoming);
-    _phase = RitoTurnMotionPhase.dragging;
-    _forward = forward;
-    _hasIncoming = hasIncoming;
-    _offset = begun.offset;
-    _from = begun.offset;
-    _leaving = begun.leaving;
-    _velocity = 0;
-    _settling = null;
-    _shift = 0;
-    _samples
-      ..clear()
-      ..add((offset: begun.offset, at: at));
-    _fingerSpeed = 0;
+    _native.startDrag(
+      forward: forward,
+      hasIncoming: hasIncoming,
+      at: at,
+      begin: _beginOf(forward: forward, hasIncoming: hasIncoming),
+    );
+    _settle = null;
   }
 
   /// Follows a finger that has carried the turn [travel] px from where it
   /// took it, at [at] ms; a pull with no neighbour is resisted, what the
   /// turn had already travelled is not.
   void drag(double travel, {required double at}) {
-    if (_phase != RitoTurnMotionPhase.dragging) return;
-    final carried = _hasIncoming ? travel : physics.resist(travel, width);
-    _offset = _withinAPage(_from + carried);
-    _samples.add((offset: _offset, at: at));
-    if (_samples.length > _speedWindow) _samples.removeAt(0);
-    _fingerSpeed = _speedOf(_samples);
+    if (phase != RitoTurnMotionPhase.dragging) return;
+    final resisted = hasIncoming ? null : _physics.resist(travel, _width);
+    if (resisted == null) {
+      _native.drag(travel, at: at);
+    } else {
+      _native.drag(resisted, at: at, carried: true);
+    }
   }
-
-  /// How fast the finger carries the turn, logical px/s, from where the
-  /// turn was at its last few samples (the web's `estimateVelocity`).
-  double get fingerVelocity => _fingerSpeed * 1000;
 
   /// Lets go; true when the page turns. It goes as fast as the finger was
   /// carrying it.
   bool release({RitoPageTurnTouch? touch}) {
-    if (_phase != RitoTurnMotionPhase.dragging) return false;
-    final velocity = fingerVelocity;
-    _velocity = velocity;
-    final lands =
-        _hasIncoming &&
-        physics.lands(
-          RitoPageTurnRelease(
-            offset: _offset,
-            from: _from,
-            velocity: velocity,
-            width: width,
-            forward: _forward,
-            touch: touch,
-          ),
-        );
-    _settleTo(lands ? _turnTarget : 0);
-    return lands;
+    if (phase != RitoTurnMotionPhase.dragging) return false;
+    final lands = hasIncoming
+        ? _physics.lands(
+            RitoPageTurnRelease(
+              offset: offset,
+              from: _state[6],
+              velocity: fingerVelocity,
+              width: _width,
+              forward: forward,
+              touch: touch,
+            ),
+          )
+        : null;
+    final turned = _native.release(lands);
+    _followSettle();
+    return turned;
   }
 
-  /// Sends the turn back to where it started (also from a turn that
-  /// arrived but could not land).
+  /// Sends a turn that is held or going by itself back to where it started
+  /// (also one that arrived but could not land).
   void cancel() {
-    if (_phase == RitoTurnMotionPhase.idle && _offset == 0) return;
-    // A finger taken away leaves the turn going as fast as it carried it.
-    if (_phase == RitoTurnMotionPhase.dragging) _velocity = fingerVelocity;
-    _settleTo(0);
+    _native.cancel();
+    _followSettle();
   }
 
   /// Turns toward a neighbour without a finger (a tap, a key): from rest,
   /// from what a turn it cut into had left, or on from where a turn that
   /// was going back is.
   void turn({required bool forward}) {
-    if (_phase == RitoTurnMotionPhase.idle ||
-        _phase == RitoTurnMotionPhase.finishing) {
-      final begun = _beginning(forward: forward, hasIncoming: true);
-      _offset = begun.offset;
-      _velocity = begun.velocity;
-      _leaving = begun.leaving;
-    }
-    _forward = forward;
-    _hasIncoming = true;
-    _settleTo(_turnTarget);
+    _native.turn(
+      forward: forward,
+      begin: _beginOf(forward: forward, hasIncoming: true),
+    );
+    _followSettle();
   }
 
   /// Settles the outcome of the turn that is open and leaves its picture
   /// going: the rest of it, in the coordinates that outcome leaves. A turn
   /// that landed ([committed]) has a new current page: what was a page
   /// width short of arriving is now that far from rest, the page it left
-  /// beside it. One that was going back stays where it is. Nothing lies
-  /// more than a page from rest.
+  /// beside it. One that was going back stays where it is.
   void carryOn({required bool committed}) {
-    if (_phase == RitoTurnMotionPhase.idle ||
-        _phase == RitoTurnMotionPhase.finishing) {
-      return;
-    }
-    final shift = committed ? (_forward ? width : -width) : 0.0;
-    final moved = _offset + shift;
-    final offset = _withinAPage(moved);
-    final shown = showing;
-    _leaving = committed
-        ? (_forward ? _Leaving.previous : _Leaving.next)
-        : switch (shown) {
-            RitoPageSlot.next => _Leaving.next,
-            RitoPageSlot.previous => _Leaving.previous,
-            _ => _Leaving.none,
-          };
-    // A turn left alone keeps the motion it was on; one a finger held, or
-    // cut short, starts one.
-    final keeps =
-        _phase == RitoTurnMotionPhase.settling &&
-        _settling != null &&
-        offset == moved;
-    if (keeps) {
-      _shift += shift;
-    } else {
-      // A turn a finger held goes on as fast as the finger carried it.
-      if (_phase == RitoTurnMotionPhase.dragging) _velocity = fingerVelocity;
-      _settling = physics.settle(from: offset, velocity: _velocity, to: 0);
-      _elapsed = 0;
-      _shift = 0;
-    }
-    _offset = offset;
-    _target = 0;
-    _from = 0;
-    _phase = RitoTurnMotionPhase.finishing;
+    _native.carryOn(committed: committed);
+    _followSettle();
   }
 
   /// Advances the turn [seconds]; true when a turn came to rest. [instant]
-  /// lands at once. The motion is read off its simulation at the time
-  /// elapsed, so its path is the same whatever the frame rate. What was
-  /// left of a turn that was cut into comes to rest without saying so: its
-  /// turn was over when it was cut into.
+  /// lands at once. What was left of a turn that was cut into comes to rest
+  /// without saying so: its turn was over when it was cut into.
   bool step(double seconds, {bool instant = false}) {
-    final settling = _settling;
-    if (!moving || settling == null) return false;
-    _elapsed += seconds;
-    _offset = settling.x(_elapsed) + _shift;
-    _velocity = settling.dx(_elapsed);
-    if (instant || settling.isDone(_elapsed)) {
-      final finishing = _phase == RitoTurnMotionPhase.finishing;
-      finish();
-      return !finishing;
-    }
-    return false;
+    if (!moving) return false;
+    final settle = _settle;
+    final elapsed = _state[8] + seconds;
+    final step = _native.step(
+      seconds,
+      host: settle == null
+          ? null
+          : (
+              x: settle.x(elapsed),
+              velocity: settle.dx(elapsed),
+              done: settle.isDone(elapsed),
+            ),
+      instant: instant,
+    );
+    if (step >= 2) _settle = null;
+    // 2 and 3: a turn came to rest; 4: what was left of one did.
+    return step == 2 || step == 3;
   }
 
   /// Puts the turn where it was going and stops it.
   void finish() {
-    _offset = _target;
-    _velocity = 0;
-    _phase = RitoTurnMotionPhase.idle;
-    _settling = null;
-    _shift = 0;
-    if (_target == 0) _leaving = null;
+    _native.finish();
+    _settle = null;
   }
 
   void reset() {
-    _phase = RitoTurnMotionPhase.idle;
-    _offset = 0;
-    _velocity = 0;
-    _target = 0;
-    _settling = null;
-    _shift = 0;
-    _from = 0;
-    _leaving = null;
+    _native.reset();
+    _settle = null;
   }
 
-  double get _turnTarget => _forward ? -width : width;
+  /// Lets the engine's memory for the motion go.
+  void dispose() => _native.dispose();
 
-  /// A turn goes no farther than a page either way: beyond it there is no
-  /// page to show.
-  double _withinAPage(double offset) =>
-      width > 0 ? offset.clamp(-width, width).toDouble() : offset;
-
-  /// What a turn beginning now starts from: what its physics make of what
-  /// the turn it cut into left, or rest.
-  ({double offset, double velocity, _Leaving? leaving}) _beginning({
+  /// Where the physics begin a turn that cuts into what is left of another,
+  /// when they say; null for the engine's rule, or at rest.
+  ({double offset, double velocity})? _beginOf({
     required bool forward,
     required bool hasIncoming,
   }) {
-    final leaving = _leaving;
-    if (_phase != RitoTurnMotionPhase.finishing || leaving == null) {
-      return (offset: 0, velocity: 0, leaving: null);
-    }
-    final own = !hasIncoming
-        ? null
-        : (forward ? _Leaving.next : _Leaving.previous);
-    final at = physics.begins(
+    final leaving = _state[13];
+    if (phase != RitoTurnMotionPhase.finishing || leaving == 0) return null;
+    final own = !hasIncoming ? null : (forward ? 1.0 : 2.0);
+    return _physics.begins(
       RitoPageTurnLeftover(
-        offset: _offset,
-        velocity: _velocity,
-        width: width,
+        offset: offset,
+        velocity: velocity,
+        width: _width,
         forward: forward,
         samePages: leaving == own,
       ),
     );
-    // A turn that begins elsewhere shows nothing of the one it cut into.
-    return (
-      offset: at.offset,
-      velocity: at.velocity,
-      leaving: at.offset == _offset ? leaving : null,
-    );
   }
 
-  void _settleTo(double target) {
-    _target = target;
-    _phase = RitoTurnMotionPhase.settling;
-    _settling = physics.settle(from: _offset, velocity: _velocity, to: target);
-    _elapsed = 0;
-    _shift = 0;
-    _from = 0;
+  /// Starts the physics' own motion when the engine has started one: from
+  /// where, how fast and to where it says. Null leaves it to the spring.
+  void _followSettle() {
+    if (!moving || _state[14] == _settleGeneration) return;
+    _settleGeneration = _state[14];
+    _settle = _physics.settle(
+      from: _state[15],
+      velocity: _state[16],
+      to: _state[17],
+    );
   }
 }
 
@@ -532,46 +413,6 @@ double ritoTurnProgress({
   if (width <= 0) return 0;
   final toward = forward ? -offset : offset;
   return math.min(1, math.max(0, toward / width));
-}
-
-/// The spring's offset from its target and its velocity [t] seconds on,
-/// from [offset] (px) and [velocity] (px/s), solved in closed form.
-({double offset, double velocity}) springAt(
-  RitoSpring spring,
-  double offset,
-  double velocity,
-  double t,
-) {
-  final simulation = SpringSimulation(
-    SpringDescription(
-      mass: 1,
-      stiffness: spring.stiffness,
-      damping: spring.damping,
-    ),
-    offset,
-    0,
-    velocity,
-  );
-  return (offset: simulation.x(t), velocity: simulation.dx(t));
-}
-
-/// How many of a finger's last samples its speed is measured from.
-const int _speedWindow = 5;
-
-/// How fast the samples move, px/ms: each step's speed, the later ones
-/// weighing more, no step shorter than a millisecond (the web's
-/// `estimateVelocity`).
-double _speedOf(List<({double offset, double at})> samples) {
-  if (samples.length < 2) return 0;
-  if (samples.last.at - samples.first.at < 1) return 0;
-  var weighted = 0.0;
-  var weights = 0;
-  for (var i = 1; i < samples.length; i += 1) {
-    final step = math.max(samples[i].at - samples[i - 1].at, 1.0);
-    weighted += (samples[i].offset - samples[i - 1].offset) / step * i;
-    weights += i;
-  }
-  return weights > 0 ? weighted / weights : 0;
 }
 
 /// Whether a finger come down at [origin] that has moved by [moved] moves

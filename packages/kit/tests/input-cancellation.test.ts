@@ -710,8 +710,9 @@ describe('touch selection wiring', () => {
     harness.dom.emit('touchmove', touchEvent([touch(1, 20, 20)], [touch(1, 20, 20)], 10));
     harness.dom.emit('touchcancel', touchEvent([], [touch(1, 20, 20)]));
 
-    expect(harness.cancelTracking).toHaveBeenCalledTimes(1);
-    expect(harness.releaseTracking).not.toHaveBeenCalled();
+    expect(harness.fingerDown).toHaveBeenCalledTimes(1);
+    expect(harness.fingerCancel).toHaveBeenCalledTimes(1);
+    expect(harness.fingerUp).not.toHaveBeenCalled();
     expect(harness.selection.down).not.toHaveBeenCalled();
     expect(harness.selection.up).not.toHaveBeenCalled();
     expect(harness.tap).not.toHaveBeenCalled();

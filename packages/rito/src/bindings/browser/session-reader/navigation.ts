@@ -5,7 +5,11 @@ import type {
   ReaderLocatorResolution,
   TocEntry,
 } from '../../../reader';
-import { RitoReaderError, type BrowserReaderLocator } from '../reader-session';
+import {
+  RitoReaderError,
+  type BrowserReaderArtifact,
+  type BrowserReaderLocator,
+} from '../reader-session';
 import { waitForSessionReaderBook } from './commit';
 import { sessionReaderClosed, type SessionReaderState } from './state';
 
@@ -15,7 +19,14 @@ const MATCHED_BY = {
   anchor: 'anchor',
   progression: 'progression',
   href: 'href',
-} as const satisfies Record<string, ReaderLocatorMatchedBy>;
+  'book-start': 'bookStart',
+} as const satisfies Record<SessionLocatorMatch, ReaderLocatorMatchedBy>;
+type SessionLocatorMatch = BrowserReaderArtifact['matchedBy'];
+
+/** A session's locator match as the reader reports it. */
+export function readerLocatorMatch(match: SessionLocatorMatch): ReaderLocatorMatchedBy {
+  return MATCHED_BY[match];
+}
 
 export function sessionReaderNavigationMethods(
   state: SessionReaderState,
@@ -84,7 +95,7 @@ export async function locateSessionReaderLocator(
         spineIdref: spineIdref(state, target.href),
         pageIndex: location.pageIndex,
         spreadIndex,
-        matchedBy: MATCHED_BY[location.matchedBy],
+        matchedBy: readerLocatorMatch(location.matchedBy),
         ...(location.blockOffset === undefined ? {} : { blockOffset: location.blockOffset }),
       };
     }

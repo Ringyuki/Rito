@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { abortTransition, transitionLifecycle } from '../src/controller/core/transition-lifecycle';
 import type { ReaderControllerEvents } from '../src/controller/types';
 import { createTransitionDriver } from '../src/driver/transition-driver';
@@ -58,17 +58,31 @@ describe('transition lifecycle', () => {
     ]);
   });
 
-  it('ends a turn in flight as interrupted when the driver is reset', () => {
+  it('ends a turn in flight as interrupted when it is aborted', () => {
     const { emitter, events } = recordedEmitter();
     const td = createTransitionDriver();
     td.viewportWidth = 800;
-    td.goToTarget('forward', 0, 1);
+    td.pagesFrom(() => ({
+      canTurn: { next: true, previous: true },
+      there: { next: true, previous: true },
+      drawable: { next: true, previous: true },
+      beyond: { next: true, previous: true },
+    }));
+    const outcomes: string[] = [];
+    td.onAction((action) => {
+      if (action.kind === 'land') td.landed(true);
+      if (action.kind === 'ended') outcomes.push(action.outcome);
+    });
+    td.command('next');
     transitionLifecycle(emitter).begin('forward');
     td.step(16);
+    const forget = vi.fn();
 
-    abortTransition(td, emitter);
+    abortTransition(td, emitter, { forget });
 
     expect(td.isAnimating).toBe(false);
+    expect(outcomes).toEqual(['interrupted']);
+    expect(forget).toHaveBeenCalledOnce();
     expect(events).toEqual(['start:forward', 'end:forward:interrupted']);
   });
 });
@@ -89,7 +103,7 @@ describe('transition ownership', () => {
     expect(offenders(/emit\(\s*'transition(Start|Progress|End)'/)).toEqual([]);
   });
 
-  it('resets the transition driver only through abortTransition', () => {
-    expect(offenders(/\btd\.reset\(\)/)).toEqual([]);
+  it('interrupts the turns only through abortTransition', () => {
+    expect(offenders(/\.interrupt\(\)/)).toEqual([]);
   });
 });

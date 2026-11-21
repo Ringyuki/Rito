@@ -48,6 +48,7 @@ extension _ArtifactFields on RitoArtifactDecoder {
       2 => RitoLocatorMatch.anchor,
       3 => RitoLocatorMatch.progression,
       4 => RitoLocatorMatch.href,
+      5 => RitoLocatorMatch.bookStart,
       _ => reader.fail('unknown locator match: $value'),
     };
   }

@@ -1,328 +1,249 @@
-import { describe, expect, it, vi } from 'vitest';
-import { stepSpring, type SpringState } from '../src/driver/spring';
-import { createTransitionDriver } from '../src/driver/transition-driver';
-import { DEFAULT_TRANSITION_OPTIONS } from '../src/driver/types';
+import { describe, expect, it } from 'vitest';
+import type { TurnAction, TurnPages } from '@ritojs/core';
+import { createTransitionDriver, type TransitionDriver } from '../src/driver/transition-driver';
+import type { TransitionDriverOptions } from '../src/driver/types';
 
-describe('TransitionDriver', () => {
-  function createDriver(
-    opts?: { swipeThreshold?: number; velocityCommit?: number },
-    viewportWidth = 800,
-  ) {
-    const driver = createTransitionDriver(opts);
-    driver.viewportWidth = viewportWidth;
-    return driver;
+// The rules of a turn (when a release lands, how a turn cut into carries
+// on, what a key does to a turn on screen) are the engine's, held to its
+// own spec. These say the kit's driver tells the engine what happens, with
+// what the host knows of the pages, and hands back what it decides.
+
+interface Sides {
+  next: boolean;
+  previous: boolean;
+}
+
+interface Host {
+  readonly td: TransitionDriver;
+  readonly actions: string[];
+  /** Which neighbours exist, and which are painted in their slots. */
+  readonly pages: { can: Sides; there: Sides };
+  /** Whether the host lands a turn when asked. */
+  landing: boolean;
+}
+
+function describeAction(action: TurnAction): string {
+  switch (action.kind) {
+    case 'started':
+    case 'land':
+    case 'fetch':
+      return `${action.kind}:${action.direction}`;
+    case 'ended':
+      return `ended:${action.direction}:${action.outcome}`;
+    case 'wait-for-effect':
+    case 'rested':
+      return action.kind;
   }
+}
 
-  it('starts idle', () => {
-    const td = createDriver();
-    expect(td.mode.kind).toBe('idle');
+function host(options?: Partial<TransitionDriverOptions>): Host {
+  const td = createTransitionDriver(options);
+  td.viewportWidth = 800;
+  const pages = {
+    can: { next: true, previous: true },
+    there: { next: true, previous: true },
+  };
+  const state: Host = { td, actions: [], pages, landing: true };
+  td.pagesFrom(
+    (): TurnPages => ({
+      canTurn: { ...pages.can },
+      there: { ...pages.there },
+      drawable: { next: true, previous: true },
+      beyond: { ...pages.can },
+    }),
+  );
+  td.onAction((action) => {
+    state.actions.push(describeAction(action));
+    if (action.kind === 'land') td.landed(state.landing);
+  });
+  return state;
+}
+
+function settle(td: TransitionDriver): void {
+  for (let frame = 0; td.isAnimating && frame < 500; frame += 1) td.step(16);
+  if (td.isAnimating) throw new Error('the turn did not come to rest');
+}
+
+const at = (x: number) => ({ x, y: 20 });
+
+function drag(td: TransitionDriver, travels: readonly number[], every = 16): number {
+  td.fingerDown(at(400), 0);
+  let time = 0;
+  for (const travel of travels) {
+    time += every;
+    td.fingerMove(at(400 + travel), travel, time);
+  }
+  return time;
+}
+
+describe('the driver at rest', () => {
+  it('is idle and draws the page shown', () => {
+    const { td } = host();
+    expect(td.mode).toEqual({ kind: 'idle' });
     expect(td.isAnimating).toBe(false);
+    expect(td.turning).toBe(false);
+    expect(td.step(16)).toEqual({ kind: 'single', slot: 'curr' });
   });
 
-  it('idle step returns single instruction', () => {
-    const td = createDriver();
-    const instr = td.step(16);
-    expect(instr.kind).toBe('single');
-    if (instr.kind === 'single') expect(instr.slot).toBe('curr');
+  it('is told nothing to interrupt or settle before its first turn', () => {
+    const { td, actions } = host();
+    td.interrupt();
+    td.settleNow();
+    expect(actions).toEqual([]);
+  });
+});
+
+describe('a turn commanded', () => {
+  it('begins, lands at once and ends when it has moved the page', () => {
+    const { td, actions } = host();
+    expect(td.command('next')).toBe(true);
+    expect(actions).toEqual(['started:next', 'land:next']);
+    expect(td.turning).toBe(true);
+    const frame = td.step(16);
+    expect(frame).toMatchObject({ kind: 'turning', outgoing: 'curr', incoming: 'next' });
+    expect(frame.kind === 'turning' && frame.dx < 0).toBe(true);
+    settle(td);
+    expect(actions).toEqual(['started:next', 'land:next', 'ended:next:committed']);
+    expect(td.mode).toEqual({ kind: 'idle' });
   });
 
-  it('startTracking transitions to tracking', () => {
-    const td = createDriver();
-    td.startTracking('forward', 0, 1, 0);
-    expect(td.mode.kind).toBe('tracking');
-    expect(td.isAnimating).toBe(true);
+  it('turns back toward the page before, its picture moving the other way', () => {
+    const { td, actions } = host();
+    td.command('previous');
+    const frame = td.step(16);
+    expect(frame).toMatchObject({ kind: 'turning', incoming: 'prev' });
+    expect(frame.kind === 'turning' && frame.dx > 0).toBe(true);
+    settle(td);
+    expect(actions.at(-1)).toBe('ended:previous:committed');
   });
 
-  it('updateTracking updates dx and vx', () => {
-    const td = createDriver();
-    td.startTracking('forward', 0, 1, 0);
-    td.updateTracking(-100, 100);
-    expect(td.mode.kind).toBe('tracking');
-    if (td.mode.kind === 'tracking') {
-      expect(td.mode.dx).toBe(-100);
-      expect(td.mode.vx).not.toBe(0);
-    }
+  it('is not taken at the end of the book', () => {
+    const { td, actions, pages } = host();
+    pages.can.next = false;
+    expect(td.command('next')).toBe(false);
+    expect(actions).toEqual([]);
   });
 
-  it('step during tracking returns turning instruction with current dx', () => {
-    const td = createDriver();
-    td.startTracking('forward', 0, 1, 0);
-    td.updateTracking(-200, 100);
-    const instr = td.step(16);
-    expect(instr.kind).toBe('turning');
-    if (instr.kind === 'turning') {
-      expect(instr.dx).toBe(-200);
-      expect(instr.outgoing).toBe('curr');
-      expect(instr.incoming).toBe('next');
-    }
+  it('asks for its page and begins once the host says it is painted', () => {
+    const { td, actions, pages } = host();
+    pages.there.next = false;
+    expect(td.command('next')).toBe(true);
+    expect(actions).toEqual(['fetch:next']);
+    expect(td.turning).toBe(false);
+    pages.there.next = true;
+    td.pagesChanged();
+    expect(actions).toEqual(['fetch:next', 'started:next', 'land:next']);
   });
 
-  it('releaseTracking commits when dx exceeds threshold', () => {
-    const td = createDriver({ swipeThreshold: 50 });
-    td.viewportWidth = 800;
-    td.startTracking('forward', 0, 1, 0);
-    td.updateTracking(-100, 100); // > 50px threshold
-    const result = td.releaseTracking();
-    expect(result).toBe('commit');
-    expect(td.mode.kind).toBe('settling');
-    if (td.mode.kind === 'settling') {
-      expect(td.mode.target).toBe(-800);
-    }
+  it('goes back when the host cannot land it', () => {
+    const state = host();
+    state.landing = false;
+    state.td.command('next');
+    settle(state.td);
+    expect(state.actions).toEqual(['started:next', 'land:next', 'ended:next:cancelled']);
   });
 
-  it('releaseTracking cancels when dx below threshold', () => {
-    const td = createDriver({ swipeThreshold: 50 });
-    td.viewportWidth = 800;
-    td.startTracking('forward', 0, 1, 0);
-    td.updateTracking(-20, 100); // < 50px threshold, low velocity
-    const result = td.releaseTracking();
-    expect(result).toBe('cancel');
-    expect(td.mode.kind).toBe('settling');
-    if (td.mode.kind === 'settling') {
-      expect(td.mode.target).toBe(0);
-    }
-  });
-
-  it('releaseTracking commits on high velocity even if dx < threshold (fling)', () => {
-    const td = createDriver({ swipeThreshold: 100, velocityCommit: 0.4 });
-    td.startTracking('forward', 0, 1, 0);
-    // Simulate fast fling: 5 samples accelerating rapidly
-    td.updateTracking(-5, 10);
-    td.updateTracking(-15, 20);
-    td.updateTracking(-30, 30);
-    td.updateTracking(-50, 40);
-    td.updateTracking(-80, 50); // ~3 px/ms → well above 0.4 threshold
-    const result = td.releaseTracking();
-    expect(result).toBe('commit');
-  });
-
-  it('releaseTracking commits via projection: small dx + moderate velocity', () => {
-    const td = createDriver({ swipeThreshold: 50, velocityCommit: 2.0 }); // high vCommit to isolate projection
-    td.startTracking('forward', 0, 1, 0);
-    // dx = -30 < threshold, but vx ≈ -0.5 px/ms → projected = |-30 + -0.5*150| = 105 > 50
-    td.updateTracking(-10, 50);
-    td.updateTracking(-20, 100);
-    td.updateTracking(-30, 150);
-    const result = td.releaseTracking();
-    expect(result).toBe('commit');
-  });
-
-  it('releaseTracking cancels when both dx and projection are below threshold', () => {
-    const td = createDriver({ swipeThreshold: 50, velocityCommit: 2.0 });
-    td.startTracking('forward', 0, 1, 0);
-    // Slow, small drag: dx = -10, vx ≈ -0.05 → projected = |-10 + -0.05*150| = 17.5 < 50
-    td.updateTracking(-5, 100);
-    td.updateTracking(-8, 200);
-    td.updateTracking(-10, 300);
-    const result = td.releaseTracking();
-    expect(result).toBe('cancel');
-  });
-
-  it('cancelTracking settles back even when displacement would normally commit', () => {
-    const td = createDriver();
-    const onSettled = vi.fn();
-    td.onSettled(onSettled);
-    td.startTracking('forward', 0, 1, 0);
-    td.updateTracking(-200, 100);
-
-    expect(td.cancelTracking()).toBe(true);
-    expect(td.mode).toMatchObject({ kind: 'settling', target: 0 });
-    while (td.isAnimating) td.step(16);
-
-    expect(onSettled).toHaveBeenCalledWith({
-      direction: 'forward',
-      committed: false,
-      targetSpread: 0,
-    });
-  });
-
-  it('cancelTracking retargets an owned settling transition back to its origin', () => {
-    const td = createDriver();
-    const onSettled = vi.fn();
-    td.onSettled(onSettled);
-    td.goToTarget('forward', 0, 1);
+  it('lands on its first frame when the effect turns pages at once', () => {
+    const { td, actions } = host({ effect: 'none' });
+    td.command('next');
     td.step(16);
+    expect(td.isAnimating).toBe(false);
+    expect(actions.at(-1)).toBe('ended:next:committed');
+  });
+});
 
-    expect(td.cancelTracking()).toBe(true);
-    expect(td.mode).toMatchObject({ kind: 'settling', target: 0 });
-    while (td.isAnimating) td.step(16);
-
-    expect(onSettled).toHaveBeenCalledWith({
-      direction: 'forward',
-      committed: false,
-      targetSpread: 0,
-    });
+describe('a finger turning the page', () => {
+  it('moves the page as far as it carries it, the neighbour coming in', () => {
+    const { td, actions } = host();
+    drag(td, [-40, -120, -200]);
+    expect(actions).toEqual(['started:next']);
+    expect(td.mode).toMatchObject({ kind: 'tracking', direction: 'forward', hasIncoming: true });
+    expect(td.step(16)).toMatchObject({ kind: 'turning', incoming: 'next', dx: -200 });
   });
 
-  it('cancelTracking returns false while idle', () => {
-    const td = createDriver();
-    expect(td.cancelTracking()).toBe(false);
+  it('lands a release past the threshold, and sends a short slow one back', () => {
+    const far = host({ swipeThreshold: 50 });
+    const time = drag(far.td, [-30, -60, -100], 100);
+    far.td.fingerUp(at(300), -100, time + 100);
+    expect(far.actions).toEqual(['started:next', 'land:next']);
+    settle(far.td);
+    expect(far.actions.at(-1)).toBe('ended:next:committed');
+
+    // Slow enough that the step the finger made crossing the slop has left
+    // the samples its speed is measured from.
+    const near = host({ swipeThreshold: 50 });
+    const slow = drag(near.td, [-2, -4, -6, -8, -10, -10], 100);
+    near.td.fingerUp(at(390), -10, slow + 100);
+    settle(near.td);
+    expect(near.actions).toEqual(['started:next', 'ended:next:cancelled']);
   });
 
-  it('goToTarget goes directly to settling', () => {
-    const td = createDriver();
-    td.goToTarget('forward', 0, 1);
-    expect(td.mode.kind).toBe('settling');
-    if (td.mode.kind === 'settling') {
-      expect(td.mode.dx).toBe(0);
-      expect(td.mode.target).toBe(-800);
-    }
+  it('lands a flick shorter than the threshold', () => {
+    const { td, actions } = host({ swipeThreshold: 100, velocityCommit: 0.4 });
+    const time = drag(td, [-5, -15, -30, -50, -80], 10);
+    td.fingerUp(at(320), -80, time + 10);
+    expect(actions).toEqual(['started:next', 'land:next']);
   });
 
-  it('goToTarget backward sets positive target', () => {
-    const td = createDriver();
-    td.goToTarget('backward', 1, 0);
-    expect(td.mode.kind).toBe('settling');
-    if (td.mode.kind === 'settling') {
-      expect(td.mode.target).toBe(800);
-    }
+  it('sends the page back when the finger is taken away, however far it went', () => {
+    const { td, actions } = host();
+    drag(td, [-100, -300]);
+    td.fingerCancel();
+    settle(td);
+    expect(actions).toEqual(['started:next', 'ended:next:cancelled']);
   });
 
-  it('uses the spring curve for programmatic page turns', () => {
-    const td = createDriver();
-    const expected: SpringState = { x: 0, vx: 0 };
-    stepSpring(expected, -800, DEFAULT_TRANSITION_OPTIONS, 16);
-
-    td.goToTarget('forward', 0, 1);
-    td.step(16);
-
-    expect(td.mode).toMatchObject({
-      kind: 'settling',
-      dx: expected.x,
-      vx: expected.vx,
-    });
-  });
-
-  it('settling converges to target and emits onSettled', () => {
-    const td = createDriver();
-    const onSettled = vi.fn();
-    td.onSettled(onSettled);
-
-    td.goToTarget('forward', 0, 1);
-    let steps = 0;
-    while (td.isAnimating && steps < 500) {
-      td.step(16);
-      steps++;
-    }
-
-    expect(td.mode.kind).toBe('idle');
-    expect(onSettled).toHaveBeenCalledTimes(1);
-    expect(onSettled.mock.calls[0]?.[0]).toMatchObject({
-      direction: 'forward',
-      committed: true,
-      targetSpread: 1,
-    });
-  });
-
-  it('interrupt during settling returns dx/vx and resumes tracking', () => {
-    const td = createDriver();
-    td.goToTarget('forward', 0, 1);
-    // Step a few frames to build up some dx
-    td.step(16);
-    td.step(16);
-
-    const state = td.interrupt(1000);
-    expect(state).not.toBeNull();
-    expect(td.mode.kind).toBe('tracking');
-  });
-
-  it('hands a release the finger momentum in the spring unit', () => {
-    const td = createDriver();
-    td.startTracking('forward', 0, 1, 0);
-    td.updateTracking(-40, 20);
-    td.updateTracking(-80, 40);
-    expect(td.mode.kind === 'tracking' && td.mode.vx).toBeCloseTo(-2);
-    td.releaseTracking();
-    // -2 px/ms is -2000 px/s for the spring.
-    expect(td.mode.kind === 'settling' && td.mode.vx).toBeCloseTo(-2000);
-
-    const interrupted = td.interrupt(60);
-    expect(interrupted?.vx).toBeCloseTo(-2);
-  });
-
-  it('stops a hard flick at the far side without passing it', () => {
-    const td = createDriver();
-    td.startTracking('forward', 0, 1, 0);
-    td.updateTracking(-300, 50);
-    td.updateTracking(-700, 60);
-    expect(td.releaseTracking()).toBe('commit');
-    const seen: number[] = [];
-    while (td.isAnimating) {
-      const instruction = td.step(16);
-      if (instruction.kind === 'turning') seen.push(instruction.dx);
-    }
-    expect(Math.min(...seen)).toBeGreaterThanOrEqual(-800);
-  });
-
-  it('interrupt during non-settling returns null', () => {
-    const td = createDriver();
-    expect(td.interrupt(0)).toBeNull();
-  });
-
-  it('boundary elastic: incoming=null triggers rubber band release', () => {
-    const td = createDriver();
-    td.startTracking('forward', 0, null, 0); // null = at boundary
-    td.updateTracking(-100, 100);
-    const result = td.releaseTracking();
-    expect(result).toBe('cancel');
+  it('pulls against the end of the book without turning, and comes to rest unannounced', () => {
+    const { td, actions, pages } = host();
+    pages.can.next = false;
+    drag(td, [-40, -120]);
+    expect(td.mode).toMatchObject({ kind: 'tracking', hasIncoming: false });
+    const frame = td.step(16);
+    expect(frame).toMatchObject({ kind: 'turning', incoming: null });
+    expect(frame.kind === 'turning' && frame.dx > -120 && frame.dx < 0).toBe(true);
+    td.fingerUp(at(280), -120, 100);
     expect(td.mode.kind).toBe('boundary-elastic');
+    settle(td);
+    expect(actions).toEqual([]);
   });
 
-  it('boundary elastic settles back to 0', () => {
-    const td = createDriver();
-    const onSettled = vi.fn();
-    td.onSettled(onSettled);
-
-    td.startTracking('forward', 0, null, 0);
-    td.updateTracking(-100, 100);
-    td.releaseTracking();
-
-    let steps = 0;
-    while (td.isAnimating && steps < 500) {
-      td.step(16);
-      steps++;
-    }
-
-    expect(td.mode.kind).toBe('idle');
-    expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ committed: false }));
+  it('keeps keys from the page it holds', () => {
+    const { td } = host();
+    drag(td, [-60]);
+    expect(td.command('next')).toBe(false);
   });
+});
 
-  it('backward boundary elastic preserves its direction through settlement', () => {
-    const td = createDriver();
-    const onSettled = vi.fn();
-    td.onSettled(onSettled);
-
-    td.startTracking('backward', 0, null, 0);
-    td.updateTracking(100, 100);
-    td.releaseTracking();
-    expect(td.mode).toMatchObject({ kind: 'boundary-elastic', direction: 'backward' });
-    while (td.isAnimating) td.step(16);
-
-    expect(onSettled).toHaveBeenCalledWith({
-      direction: 'backward',
-      committed: false,
-      targetSpread: 0,
-    });
-  });
-
-  it('reset forces idle', () => {
-    const td = createDriver();
-    td.goToTarget('forward', 0, 1);
-    expect(td.isAnimating).toBe(true);
-    td.reset();
-    expect(td.mode.kind).toBe('idle');
+describe('a turn ended from outside', () => {
+  it('ends interrupted where it is when something else moves the reader', () => {
+    const { td, actions } = host();
+    td.command('next');
+    td.step(16);
+    td.interrupt();
+    expect(actions.at(-1)).toBe('ended:next:interrupted');
     expect(td.isAnimating).toBe(false);
+    expect(td.step(16)).toEqual({ kind: 'single', slot: 'curr' });
   });
 
-  it('onSettled unsubscribe works', () => {
-    const td = createDriver();
-    const cb = vi.fn();
-    const unsub = td.onSettled(cb);
-    unsub();
+  it('lands a landed turn, and sends a held one back, when something is asked directly', () => {
+    const turned = host();
+    turned.td.command('next');
+    turned.td.settleNow();
+    expect(turned.actions.at(-1)).toBe('ended:next:committed');
+    expect(turned.td.isAnimating).toBe(false);
 
-    td.goToTarget('forward', 0, 1);
-    while (td.isAnimating) td.step(16);
+    const held = host();
+    drag(held.td, [-200]);
+    held.td.settleNow();
+    expect(held.actions.at(-1)).toBe('ended:next:cancelled');
+  });
 
-    expect(cb).not.toHaveBeenCalled();
+  it('stops telling a listener once it unsubscribes', () => {
+    const { td } = host();
+    const seen: string[] = [];
+    const stop = td.onAction((action) => seen.push(action.kind));
+    stop();
+    td.command('next');
+    expect(seen).toEqual([]);
   });
 });

@@ -25,11 +25,11 @@ fn the_header_lays_the_numbers_out_as_the_model_does() {
     let header =
         fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("include/rito_ffi.h"))
             .expect("the public header is readable");
-    let mut layouts = [0u32; 7];
+    let mut layouts = [0u32; 8];
     let mut error = RitoOwnedBuffer::EMPTY;
     ok(rito_paper_turn_layouts(layouts.as_mut_ptr(), &mut error));
     let names = [
-        "FRAME", "SHEET", "RELEASE", "SETTLE", "BEGUN", "LAID", "STATE",
+        "FRAME", "SHEET", "RELEASE", "SETTLE", "BEGUN", "LAID", "STATE", "MOTION",
     ];
     for (name, numbers) in names.iter().zip(layouts) {
         let define = format!("#define RITO_PAPER_TURN_{name}_NUMBERS UINT32_C({numbers})");
@@ -105,7 +105,7 @@ fn frames() -> Vec<FrameInput> {
 fn a_turn_through_the_abi_is_the_model_s_turn_bit_for_bit() {
     let mut error = RitoOwnedBuffer::EMPTY;
     let mut turn = 0u64;
-    ok(rito_paper_turn_new(&mut turn, &mut error));
+    ok(rito_paper_turn_new(ptr::null(), &mut turn, &mut error));
     let mut model = PaperModel::new();
     for input in frames() {
         let mut numbers = [0.0; FRAME_NUMBERS];

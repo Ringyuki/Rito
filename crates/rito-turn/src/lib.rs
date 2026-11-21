@@ -4,6 +4,12 @@
 //! paper is in a frame, and how a turn moves. The web runs it through wasm,
 //! Flutter through the C ABI; each host only draws what it is told, so a
 //! page turns the same way on every host, to the bit.
+//!
+//! So does the motion of any turn, whatever it looks like
+//! ([`turn_motion`]): a finger holding it, the release that decides it, the
+//! spring that carries it to rest, a pull against the end of the book, and
+//! a turn cut into by another. Its built-in rules ([`turn_physics`]) take
+//! numbers the host sets, and each decision may be the host's own physics'.
 
 mod aloft;
 pub mod curl;
@@ -23,7 +29,13 @@ pub mod physics;
 pub mod sheets;
 #[cfg(test)]
 mod spec;
+pub mod spring;
 mod swing;
+pub mod turn_controller;
+pub mod turn_controller_pack;
+pub mod turn_motion;
+pub mod turn_pack;
+pub mod turn_physics;
 
 pub use leaves::LeafId;
 pub use model::{Begun, Forgotten, Laid, PaperModel};

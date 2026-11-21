@@ -7,17 +7,73 @@ use crate::hold::NEAREST_HOLD;
 use crate::leaf::LeafGrab;
 use crate::math::{clamp, max, or_one};
 use crate::motion::{At, LeafMotion};
+use crate::spring::Spring;
 
 /// Where a turn no finger started takes the leaf: its outer edge, toward the lower corner.
 const UNHELD_GRAB: LeafGrab = LeafGrab { u: 1.0, v: 0.86 };
-/// A finger must have moved this far, CSS px, for letting go to turn the page.
-pub const LEAST_PULL: f64 = 24.0;
-/// A page curled over goes back when its finger has come back this far from
-/// its farthest, CSS px, or by this share of its farthest pull where that is more.
-const CAME_BACK: f64 = 24.0;
-const CAME_BACK_SHARE: f64 = 0.25;
-/// And when its finger is going back faster than this as it lets go, CSS px a second.
-const FLUNG_BACK: f64 = 500.0;
+
+/// The numbers a paper turn moves by: how a leaf let go comes to rest, and
+/// whether letting go turns the page. Lengths are CSS px, times seconds.
+/// The defaults are the ones the web and Flutter readers turn paper with.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PaperMotion {
+    /// The spring a leaf let go on the move finishes on: quick, and never
+    /// past its target.
+    pub leaf_spring: Spring,
+    /// How long a leaf going at its own pace takes: the whole way (as far as
+    /// `whole_span` or farther), and the least nudge of it.
+    pub whole_turn: f64,
+    pub shortest_turn: f64,
+    pub whole_span: f64,
+    /// A leaf let go slower than this many of its remaining lengths a second
+    /// finishes at its own pace; a faster one keeps its momentum.
+    pub unhurried: f64,
+    /// How long a leaf sent back the way it came takes to stop.
+    pub stops_in: f64,
+    /// How far a finger must have pulled for letting go to turn the page,
+    /// and for a page curled over to catch up with it.
+    pub least_pull: f64,
+    /// A page curled over goes back when its finger has come back this far
+    /// from its farthest, or by this share of its farthest pull where that
+    /// is more,
+    pub came_back: f64,
+    pub came_back_share: f64,
+    /// or when its finger is going back faster than this as it lets go, px a second.
+    pub flung_back: f64,
+    /// A leaf of a two-page spread turns when the share of the leaf the
+    /// finger carried it, its speed (leaves a second) projected over
+    /// `leaf_projection` added, passes `leaf_threshold`, or when its speed
+    /// passes `leaf_commit`; pulled back faster than `leaf_pull_back` leaves
+    /// a second, it stays.
+    pub leaf_projection: f64,
+    pub leaf_threshold: f64,
+    pub leaf_commit: f64,
+    pub leaf_pull_back: f64,
+}
+
+impl Default for PaperMotion {
+    fn default() -> Self {
+        Self {
+            leaf_spring: Spring {
+                stiffness: 260.0,
+                damping: 32.3,
+            },
+            whole_turn: 0.38,
+            shortest_turn: 0.2,
+            whole_span: 800.0,
+            unhurried: 1.2,
+            stops_in: 0.1,
+            least_pull: 24.0,
+            came_back: 24.0,
+            came_back_share: 0.25,
+            flung_back: 500.0,
+            leaf_projection: 0.15,
+            leaf_threshold: 0.2,
+            leaf_commit: 1.0,
+            leaf_pull_back: 0.25,
+        }
+    }
+}
 
 /// Which point of the leaf a finger took hold of, in a frame `width` wide
 /// bound at `spine` and `height` high.
@@ -67,11 +123,11 @@ pub struct Release {
 }
 
 /// Whether a turn let go turns the page.
-pub fn lands(release: &Release) -> bool {
+pub fn lands(release: &Release, motion: &PaperMotion) -> bool {
     let toward = if release.forward { -1.0 } else { 1.0 };
     if release.spine == Some(0.0) {
         if let Some(touch) = release.touch {
-            return curled_lands(&touch, toward, release.velocity);
+            return curled_lands(&touch, toward, release.velocity, motion);
         }
     }
     // How far the finger carried the leaf, wherever it took it.
@@ -84,23 +140,23 @@ pub fn lands(release: &Release) -> bool {
         (touch.position.x - touch.origin.x) * toward
     });
     // Pulling back, or barely moved: the page stays.
-    if speed < -0.25 || pulled < LEAST_PULL {
+    if speed < -motion.leaf_pull_back || pulled < motion.least_pull {
         return false;
     }
-    along + speed * 0.15 > 0.2 || speed > 1.0
+    along + speed * motion.leaf_projection > motion.leaf_threshold || speed > motion.leaf_commit
 }
 
 /// Whether a page curled over turns when its finger lets go: a page pulled
 /// out and not brought back turns, however short the pull; one brought
 /// back, or flung back, does not.
-fn curled_lands(touch: &Touch, toward: f64, velocity: f64) -> bool {
+fn curled_lands(touch: &Touch, toward: f64, velocity: f64, motion: &PaperMotion) -> bool {
     let pulled = (touch.position.x - touch.origin.x) * toward;
     let most = (touch.farthest.unwrap_or(touch.position).x - touch.origin.x) * toward;
     // The finger goes twice as far as the turn it carries, and as fast.
     let going_back = -2.0 * velocity * toward;
-    pulled >= LEAST_PULL
-        && most - pulled <= max(CAME_BACK, CAME_BACK_SHARE * most)
-        && going_back <= FLUNG_BACK
+    pulled >= motion.least_pull
+        && most - pulled <= max(motion.came_back, motion.came_back_share * most)
+        && going_back <= motion.flung_back
 }
 
 /// How a turn nothing holds comes to rest, held by the host and stepped by
@@ -116,9 +172,15 @@ pub struct PaperSettle {
 }
 
 impl PaperSettle {
-    pub(crate) fn new(from: f64, velocity: f64, to: f64, painted: u64) -> Self {
+    pub(crate) fn new(
+        motion: &PaperMotion,
+        from: f64,
+        velocity: f64,
+        to: f64,
+        painted: u64,
+    ) -> Self {
         Self {
-            motion: LeafMotion::new(from, velocity, to),
+            motion: LeafMotion::new(motion, from, velocity, to),
             to,
             began: painted,
             shown: false,

@@ -3,124 +3,9 @@
 //! began; what it keeps between steps (that it has landed) is kept in it, so
 //! a host steps it exactly once a frame.
 
-use crate::math::{cos, exp, min, pow, sign, sin, sqrt};
-
-/// A damped harmonic oscillator (unit mass) toward a target.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Spring {
-    pub stiffness: f64,
-    pub damping: f64,
-}
-
-/// Where a motion is, how fast it goes, and whether it has come to rest.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct At {
-    pub x: f64,
-    pub velocity: f64,
-    pub done: bool,
-}
-
-/// Settled once what motion remains is sub-pixel: within half a pixel of the
-/// target, and not moving fast enough to carry more than half a pixel further.
-const SETTLE_DISTANCE_PX: f64 = 0.5;
-
-/// The spring's offset from its target and velocity `t` seconds on.
-pub fn spring_at(config: Spring, offset: f64, velocity: f64, t: f64) -> (f64, f64) {
-    let omega = sqrt(config.stiffness);
-    let zeta = config.damping / (2.0 * omega);
-    if (zeta - 1.0).abs() < 1e-6 {
-        let c = velocity + omega * offset;
-        let decay = exp(-omega * t);
-        return ((offset + c * t) * decay, (velocity - omega * c * t) * decay);
-    }
-    if zeta < 1.0 {
-        let a = zeta * omega;
-        let wd = omega * sqrt(1.0 - zeta * zeta);
-        let c = (velocity + a * offset) / wd;
-        let decay = exp(-a * t);
-        let cosine = cos(wd * t);
-        let sine = sin(wd * t);
-        return (
-            decay * (offset * cosine + c * sine),
-            decay * ((c * wd - a * offset) * cosine - (offset * wd + a * c) * sine),
-        );
-    }
-    let root = omega * sqrt(zeta * zeta - 1.0);
-    let slow = -zeta * omega + root;
-    let fast = -zeta * omega - root;
-    let slow_part = (velocity - fast * offset) / (slow - fast);
-    let fast_part = offset - slow_part;
-    let slow_decay = exp(slow * t);
-    let fast_decay = exp(fast * t);
-    (
-        slow_part * slow_decay + fast_part * fast_decay,
-        slow * slow_part * slow_decay + fast * fast_part * fast_decay,
-    )
-}
-
-/// A spring that does not oscillate passes its target only when it starts
-/// toward it faster than ω times the distance; a handed-over velocity is
-/// bounded there, keeping the spring on its side of the target.
-fn bounded_velocity(config: Spring, offset: f64, velocity: f64) -> f64 {
-    let omega = sqrt(config.stiffness);
-    if config.damping < 2.0 * omega || offset == 0.0 {
-        return velocity;
-    }
-    let limit = omega * offset.abs();
-    let toward = -sign(offset) * velocity;
-    if toward > limit {
-        -sign(offset) * limit
-    } else {
-        velocity
-    }
-}
-
-/// The spring from `from` at `velocity` to `to`, read by the seconds since.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct SpringSettle {
-    config: Spring,
-    to: f64,
-    offset: f64,
-    start: f64,
-    omega: f64,
-}
-
-impl SpringSettle {
-    pub fn new(config: Spring, from: f64, velocity: f64, to: f64) -> Self {
-        let offset = from - to;
-        Self {
-            config,
-            to,
-            offset,
-            start: bounded_velocity(config, offset, velocity),
-            omega: sqrt(config.stiffness),
-        }
-    }
-
-    pub fn at(&self, seconds: f64) -> At {
-        let (offset, velocity) = spring_at(self.config, self.offset, self.start, seconds);
-        At {
-            x: self.to + offset,
-            velocity,
-            done: offset.abs() < SETTLE_DISTANCE_PX
-                && velocity.abs() / self.omega < SETTLE_DISTANCE_PX,
-        }
-    }
-}
-
-/// A leaf let go on the move finishes on this spring: quick, and never past its target.
-const LEAF_SPRING: Spring = Spring {
-    stiffness: 260.0,
-    damping: 32.3,
-};
-/// How long a leaf turned by no finger takes, seconds: the whole way, and a nudge of it.
-const WHOLE_TURN: f64 = 0.38;
-const SHORTEST_TURN: f64 = 0.2;
-/// A turn let go slower than this many of its remaining lengths a second is
-/// finished at the leaf's own pace; a faster one keeps its momentum.
-const UNHURRIED: f64 = 1.2;
-/// How long a leaf sent back the way it came takes to stop, seconds.
-const STOPS_IN: f64 = 0.1;
+use crate::math::{min, pow};
+use crate::physics::PaperMotion;
+pub use crate::spring::{spring_at, At, Spring, SpringSettle};
 
 /// From `from` to `to` at the leaf's own pace: off at once, fastest early,
 /// slowing all the way in.
@@ -132,12 +17,12 @@ struct Unhurried {
 }
 
 impl Unhurried {
-    fn new(from: f64, to: f64) -> Self {
-        let share = min(1.0, (to - from).abs() / 800.0);
+    fn new(motion: &PaperMotion, from: f64, to: f64) -> Self {
+        let share = min(1.0, (to - from).abs() / motion.whole_span);
         Self {
             from,
             to,
-            duration: SHORTEST_TURN + (WHOLE_TURN - SHORTEST_TURN) * share,
+            duration: motion.shortest_turn + (motion.whole_turn - motion.shortest_turn) * share,
         }
     }
 
@@ -167,33 +52,35 @@ enum Way {
     },
     Unhurried(Unhurried),
     /// Sent back the way it came while still on the move: it slows evenly to
-    /// a stop in `STOPS_IN`, and comes back from there at its own pace.
+    /// a stop in `stops_in` seconds, and comes back from there at its own pace.
     TurnedRound {
         stop: f64,
         velocity: f64,
         back: Unhurried,
+        stops_in: f64,
     },
     Spring(SpringSettle),
 }
 
 impl Way {
-    fn of(from: f64, velocity: f64, to: f64) -> Self {
+    fn of(motion: &PaperMotion, from: f64, velocity: f64, to: f64) -> Self {
         let way = to - from;
         if way.abs() < 0.5 {
             return Self::There { to };
         }
-        if velocity * way < 0.0 && velocity.abs() > UNHURRIED * way.abs() {
-            let stop = from + (velocity * STOPS_IN) / 2.0;
+        if velocity * way < 0.0 && velocity.abs() > motion.unhurried * way.abs() {
+            let stop = from + (velocity * motion.stops_in) / 2.0;
             return Self::TurnedRound {
                 stop,
                 velocity,
-                back: Unhurried::new(stop, to),
+                back: Unhurried::new(motion, stop, to),
+                stops_in: motion.stops_in,
             };
         }
-        if velocity.abs() < UNHURRIED * way.abs() {
-            Self::Unhurried(Unhurried::new(from, to))
+        if velocity.abs() < motion.unhurried * way.abs() {
+            Self::Unhurried(Unhurried::new(motion, from, to))
         } else {
-            Self::Spring(SpringSettle::new(LEAF_SPRING, from, velocity, to))
+            Self::Spring(SpringSettle::new(motion.leaf_spring, from, velocity, to))
         }
     }
 
@@ -209,13 +96,14 @@ impl Way {
                 stop,
                 velocity,
                 back,
+                stops_in,
             } => {
-                if seconds >= STOPS_IN {
-                    return back.at(seconds - STOPS_IN);
+                if seconds >= *stops_in {
+                    return back.at(seconds - stops_in);
                 }
-                let slowed = 1.0 - seconds / STOPS_IN;
+                let slowed = 1.0 - seconds / stops_in;
                 At {
-                    x: stop - (velocity * STOPS_IN * slowed * slowed) / 2.0,
+                    x: stop - (velocity * stops_in * slowed * slowed) / 2.0,
                     velocity: velocity * slowed,
                     done: false,
                 }
@@ -236,9 +124,9 @@ pub struct LeafMotion {
 }
 
 impl LeafMotion {
-    pub fn new(from: f64, velocity: f64, to: f64) -> Self {
+    pub fn new(motion: &PaperMotion, from: f64, velocity: f64, to: f64) -> Self {
         Self {
-            way: Way::of(from, velocity, to),
+            way: Way::of(motion, from, velocity, to),
             to,
             landed: false,
         }
@@ -270,10 +158,10 @@ pub struct Alone {
 }
 
 impl Alone {
-    pub fn new(width: f64, from: f64, speed: f64, to: f64) -> Self {
+    pub fn new(motion: &PaperMotion, width: f64, from: f64, speed: f64, to: f64) -> Self {
         Self {
             width,
-            motion: LeafMotion::new(-from * width, -speed * width, -to * width),
+            motion: LeafMotion::new(motion, -from * width, -speed * width, -to * width),
         }
     }
 
@@ -308,9 +196,17 @@ impl LeafMotion {
                 stop,
                 velocity,
                 back,
+                stops_in,
             } => {
                 out[0] = 2.0;
-                out[1..6].copy_from_slice(&[stop, velocity, back.from, back.to, back.duration]);
+                out[1..7].copy_from_slice(&[
+                    stop,
+                    velocity,
+                    back.from,
+                    back.to,
+                    back.duration,
+                    stops_in,
+                ]);
             }
             Way::Spring(spring) => {
                 out[0] = 3.0;
@@ -342,6 +238,7 @@ impl LeafMotion {
                 stop: numbers[1],
                 velocity: numbers[2],
                 back: unhurried(3),
+                stops_in: numbers[6],
             },
             _ => Way::Spring(SpringSettle {
                 config: Spring {

@@ -147,7 +147,7 @@ export class FakeReaderSession {
     readonly chapters: readonly FakeChapter[],
     request: BrowserReaderArtifactRequest,
   ) {
-    this.initialArtifact = this.request(request);
+    this.initialArtifact = this.request(request, true);
   }
 
   /**
@@ -382,20 +382,26 @@ export class FakeReaderSession {
     };
   }
 
-  private request(request: BrowserReaderArtifactRequest): BrowserReaderArtifact {
+  private request(request: BrowserReaderArtifactRequest, opening = false): BrowserReaderArtifact {
     this.requests.push(request);
     this.calls.push(`request ${request.locator.href || '(start)'}`);
-    const chapterIndex =
+    const found =
       request.locator.href === ''
         ? 0
         : this.chapters.findIndex((chapter) => chapter.href === request.locator.href);
-    if (chapterIndex < 0) throw new RitoReaderError('invalid-locator', 'unknown chapter');
+    // As the engine does: a locator that names no chapter opens the book at
+    // its start, and fails any request after the open.
+    if (found < 0 && !opening) throw new RitoReaderError('invalid-locator', 'unknown chapter');
+    const chapterIndex = Math.max(found, 0);
     const revision: Revision = { id: this.nextRevisionId++, layout: request.layout, chapterIndex };
     const pages = this.pagesOf(chapterIndex, request.layout);
-    const page = Math.round((request.locator.progression ?? 0) * (pages - 1));
+    const page = found < 0 ? 0 : Math.round((request.locator.progression ?? 0) * (pages - 1));
     // A request replaces whatever an earlier one left waiting to be adopted.
     this.foregroundCandidate = undefined;
-    const artifact = this.publish(revision, page, 'request', request.locator);
+    const artifact =
+      found < 0
+        ? this.publish(revision, page, 'request', undefined, 'book-start')
+        : this.publish(revision, page, 'request', request.locator);
     this.foregroundCandidate = artifact.artifactId;
     return artifact;
   }
@@ -541,6 +547,7 @@ export class FakeReaderSession {
     page: number,
     origin: Owned['origin'],
     requested?: BrowserReaderLocator,
+    matchedBy: BrowserReaderArtifact['matchedBy'] = 'progression',
   ): BrowserReaderArtifact {
     if (this.live.size >= LIVE_ARTIFACT_CAP) {
       throw new RitoReaderError('artifact-capacity', 'live artifact cap reached');
@@ -553,7 +560,7 @@ export class FakeReaderSession {
       revisionVersion: 0,
       artifactId: this.nextArtifactId++,
       locator: requested ?? this.locatorOf(revision, page),
-      matchedBy: 'progression',
+      matchedBy,
       localPageIndex: page,
       localSpreadIndex: page,
       localPageIndexes: [page],

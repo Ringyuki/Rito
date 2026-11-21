@@ -209,4 +209,23 @@ describe.skipIf(!engineBuilt)('the paper turn model on the web', () => {
     for (const trace of recorded.traces) ours[trace.name] = await replay(trace);
     expect(ours).toEqual(held);
   });
+
+  it('moves by the numbers it is given, the engine’s defaults until then', async () => {
+    initRitoCoreWasmSync({ module: readFileSync(WASM) });
+    const model = await loadPaperTurnModel();
+    expect(model.motion).toMatchObject({ leafStiffness: 260, leastPull: 24, wholeTurn: 0.38 });
+    const pull = {
+      dx: -15,
+      from: 0,
+      velocity: 0,
+      width: 800,
+      direction: 'forward',
+      touch: { origin: { x: 250, y: 300 }, position: { x: 220, y: 300 } },
+      spine: 0,
+    } as const;
+    expect(model.lands(pull)).toBe(true);
+    model.configure({ leastPull: 40 });
+    expect(model.motion).toMatchObject({ leastPull: 40, leafStiffness: 260 });
+    expect(model.lands(pull)).toBe(false);
+  });
 });

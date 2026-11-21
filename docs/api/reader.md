@@ -264,6 +264,15 @@ the viewport less `spreadGap` does not halve into whole device pixels the pages
 are a little narrower and the gap takes what is left — read `pageWidth` and
 `spreadGap` from `getLayoutGeometry()`. Page and spread indexes are projections of the committed layout
 and change on every commit — persist a `ReaderLocator`, not an index.
+`createReader`'s `initialLocator` is treated as persisted data: a selector that
+no longer resolves falls back to the coarser ones (`sourceRange` or
+`sourcePoint` or `anchorId`, then `progression`, then the chapter's start), and
+an href that names no chapter of the book (a position saved against another
+edition, or written in a form the book does not use) opens the book at its
+start rather than failing it. `initialLocatorMatch` says how far the locator
+was followed: the selector the book opened at, or `'bookStart'` when the href
+named no chapter. After the open, `navigateToLocator` with such an href resolves
+`undefined` and the reader stays where it is.
 `@ritojs/kit` hides the chapter commit: its page numbers, progress and
 navigation are book-wide, and a target outside the chapter is carried over to
 the book commit.

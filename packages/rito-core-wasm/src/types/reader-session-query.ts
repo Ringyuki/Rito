@@ -1,6 +1,7 @@
 import type { RitoReaderRect } from './reader-session-display';
 import type {
   RitoReaderLocator,
+  RitoReaderLocatorMatch,
   RitoReaderSourcePoint,
   RitoReaderSourceRange,
 } from './reader-session';
@@ -370,7 +371,7 @@ export type RitoReaderLocation =
       readonly pageIndex: number;
       /** Whether the asking artifact draws that page. */
       readonly drawn: boolean;
-      readonly matchedBy: 'source-range' | 'source-point' | 'anchor' | 'progression' | 'href';
+      readonly matchedBy: RitoReaderLocatorMatch;
       /**
        * In a scrolled revision, where the line the locator lands on starts
        * in that page's window, as an artifact's `targetBlockOffset`; absent

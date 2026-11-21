@@ -1,3 +1,4 @@
+import type { TurnTargets } from '../wiring/turns';
 import type { createEmitter } from '../../utils/event-emitter';
 import type { createDisposableCollection } from '../../utils/disposable';
 import type { createInteractionModeManager } from '../interaction-mode/index';
@@ -83,6 +84,8 @@ export interface RuntimeComponents {
   readonly frameDriver: FrameDriver;
   readonly pool: PageBufferPool;
   readonly prerenderScheduler: PrerenderScheduler;
-  readonly disposeSettledEvents: () => void;
+  readonly disposeTurns: () => void;
+  /** Where the kit's turns go: the spread a turn each way brings in. */
+  readonly turnTargets: TurnTargets;
   readonly surface: DisplaySurface;
 }

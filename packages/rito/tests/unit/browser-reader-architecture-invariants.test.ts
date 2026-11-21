@@ -59,8 +59,12 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // mode of that line, which turns a vertical line's arrow keys.
 // +23 lines (2026-10-29): a host face registers a variant the engine names
 // with OpenType features (its vertical forms) as a face of its own.
+// +15 lines (2026-11-21): `initialLocatorMatch`, how far the locator the
+// book opened at was followed, `bookStart` when its href named no chapter.
+// +3 lines (2026-11-21): the engine a book opens on makes its page turns' motion.
+// +2 lines (2026-11-21): and decides its page turns.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2932;
+const SESSION_READER_LINE_BUDGET = 2952;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -84,7 +88,15 @@ const SESSION_READER_LINE_BUDGET = 2932;
 // scrolled reader's windows end to end, and where a located line starts.
 // +14 lines (2026-10-27): `ReaderWritingMode` and a caret's width, the
 // shape of a caret across a vertical line and which way its keys move it.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1042;
+// +17 lines (2026-11-21): `initialLocatorMatch` and the `bookStart` match, a
+// book opened at its start because its saved position named no chapter.
+// +145 lines (2026-11-21): `loadTurnMotion` and `loadedTurnMotion`, the
+// motion of any page turn, the engine's, which the kit's turns move by.
+// +40 lines (2026-11-21): `PaperTurnMotion` and the paper model's
+// `configure`, the numbers a paper turn moves by.
+// +180 lines (2026-11-21): `loadedTurnController` and `TurnController`, the
+// page turns of a reader decided by the engine, which the kit carries out.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1424;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -150,7 +162,8 @@ describe('Browser reader architecture invariant: the reader stays a thin shell',
   it('stays within the counted thin-shell budget', () => {
     expect(SESSION_READER_FILES.length).toBeLessThanOrEqual(SESSION_READER_FILE_BUDGET);
     expect(lineCount(SESSION_READER_FILES)).toBeLessThanOrEqual(SESSION_READER_LINE_BUDGET);
-    expect(READER_ROOT_FILES.length).toBeLessThanOrEqual(6);
+    // The motion of any page turn and the page turns of a reader (2026-11-21).
+    expect(READER_ROOT_FILES.length).toBeLessThanOrEqual(8);
     expect(lineCount(READER_ROOT_FILES)).toBeLessThanOrEqual(READER_PUBLIC_CONTRACT_LINE_BUDGET);
   });
 
@@ -241,12 +254,15 @@ describe('Browser reader architecture invariant: one host protocol', () => {
     ).toBe(true);
     expect(read(BROWSER_SESSION_ENGINE)).toMatch(/^} from '@ritojs\/core-wasm';$/m);
 
-    // The page's one instance of the engine, and the paper turn's model on it (2026-10-19).
+    // The page's one instance of the engine, and the paper turn's model on it
+    // (2026-10-19), and the motion of any page turn on it (2026-11-21).
     const allowed = new Set([
       BROWSER_CORE_CONTRACTS,
       BROWSER_SESSION_ENGINE,
       join(BROWSER_BINDING, 'engine-module.ts'),
       join(BROWSER_BINDING, 'paper-turn/model.ts'),
+      join(BROWSER_BINDING, 'turn-motion.ts'),
+      join(BROWSER_BINDING, 'turn-controller.ts'),
     ]);
     const hits = scan(
       BROWSER_BINDING_FILES,
@@ -464,20 +480,28 @@ describe('Workspace architecture invariant: one host protocol, everywhere', () =
   // page and its worker. The revision runtime that stood beside it — a
   // document binding, a worker of its own, a chapter-local preview — was
   // removed layer by layer; each layer says here that it stays removed.
-  it('the WASM boundary exports the reader session and the paper turn, no other class', () => {
+  it('the WASM boundary exports the reader session and the page turn, no other class', () => {
     const crate = join(WORKSPACE_ROOT, 'crates/rito-wasm/src');
     const classes = walkRust(crate)
       .flatMap((file) => [
         ...read(file).matchAll(/#\[wasm_bindgen\(js_name = (\w+)\)\]\s*pub struct/g),
       ])
       .map((match) => match[1]);
-    // The paper page turn's model (2026-10-19).
-    expect(classes.sort()).toEqual(['RitoPaperTurn', 'RitoReaderSession']);
+    // The paper page turn's model (2026-10-19); the motion of any page
+    // turn and the page turns of a reader, one for every host (2026-11-21).
+    expect(classes.sort()).toEqual([
+      'RitoPaperTurn',
+      'RitoReaderSession',
+      'RitoTurnController',
+      'RitoTurnMotion',
+    ]);
     expect(readdirSync(crate).sort()).toEqual([
       'lib.rs',
       'paper_turn.rs',
       'reader_session',
       'reader_session.rs',
+      'turn_controller.rs',
+      'turn_motion.rs',
     ]);
   });
 

@@ -1,3 +1,64 @@
+## 0.11.0 - 2026-11-21
+
+### A stored position that names no chapter opens the book at its start
+
+The locator a session opens with is treated as persisted data all the way
+down: when its href names no chapter of the book (a position saved against
+another edition, or written in a form the book does not use), the book
+opens at its start instead of failing, and the first artifact's
+`matchedBy` is the new `RitoLocatorMatch.bookStart`. A later
+`requestArtifact` whose href names no chapter still fails, leaving the
+reader on its page. Reader protocol 10.
+
+### A finger's speed is measured from when it came down
+
+A release's speed is measured as touch toolkits measure it: from when the
+finger came down, over its last 100 ms, and none once it has held still
+40 ms. A short drag held still before it lifts goes back instead of turning
+the page as if flicked, and so does a nudge after the finger has rested on
+the page. `RitoPageTurnDragRecognizer.onStart` gives when the finger took
+hold (it came down, or went across from where it is followed), and
+`RitoPageTurnController.dragStart`'s `at` is that time.
+
+### When a turn begins, lands and ends is the engine's
+
+`RitoPageTurnController` keeps its API and asks the engine (through the C
+ABI, the same decisions as the web's) when a turn begins, lands and ends and
+what a finger, a key or a jump does to one on screen; it carries out what the
+engine asks. Where the two readers differed, they now do as follows:
+
+- A pull against the first or last page moves it and is no turn: no
+  `RitoPageTurnStarted` / `RitoPageTurnEnded`.
+- A finger that cuts into a turn takes the page the moment the reader has
+  landed that turn, where the picture is by then; one that lifts meanwhile
+  still makes its turn.
+- Every key pressed while turns land turns a page; a key toward no further
+  page leaves the turn on screen alone; a key pressed while a turn waits for
+  its page takes that turn's place, and so does a finger that comes down.
+
+### Page turns move by the engine's motion
+
+A page turn's motion — the finger while it holds the turn, the release that
+decides it, the spring, a pull against the end of the book and a turn cut
+into by another — is the engine's now, through the C ABI, the same as the
+web's to the bit. `RitoPageTurnPhysics` keeps its numbers, which feed the
+engine's rules, and its hooks: `resist`, `lands`, `begins` and `settle` now
+answer null to leave a decision to the engine (the base class does), so
+physics of your own replace only what they answer. A turn that arrived but
+could not land still goes back from its neighbour.
+
+`RitoPaperTurnEffect(motion:)` takes `RitoPaperTurnMotion`, the numbers the
+paper moves by in place of the engine's defaults.
+
+### Physics given to the controller outrank an effect's
+
+`RitoPageTurnController(physics:)` is now optional, and physics passed to it
+move turns whatever effect is shown, as the web's `physics` option outranks
+an effect's; without them a turn moves by the physics its effect brings,
+else by the built-in rules. `physics` reads null when none were given, and
+the new `effectivePhysics` says which move turns now. The README shows an
+effect and physics of your own.
+
 ## 0.10.0 - 2026-11-05
 
 ### Vertical text set as Chromium sets it

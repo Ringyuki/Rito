@@ -223,6 +223,7 @@ const fn locator_match(value: ReaderLocatorMatch) -> u32 {
         ReaderLocatorMatch::Anchor => 2,
         ReaderLocatorMatch::Progression => 3,
         ReaderLocatorMatch::Href => 4,
+        ReaderLocatorMatch::BookStart => 5,
     }
 }
 

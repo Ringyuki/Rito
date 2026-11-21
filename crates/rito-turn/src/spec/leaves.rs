@@ -17,6 +17,7 @@ use crate::leaves::{
     GONE_BY,
 };
 use crate::motion::{Alone, At};
+use crate::physics::PaperMotion;
 use crate::swing::alone_width;
 
 const COLUMNS: usize = 16;
@@ -53,6 +54,7 @@ fn leaf(spread: i64, shown: f64, shape: LeafShape) -> Leaf {
         speed: 0.0,
         let_go: None,
         flight: None,
+        motion: PaperMotion::default(),
         positions: vec![0.0; COLUMNS * ROWS * 3],
         normals: vec![0.0; COLUMNS * ROWS * 3],
     }
@@ -286,7 +288,8 @@ mod a_leaf_left_to_come_down_by_itself {
                 spine: 0.0,
                 css_pixel,
             };
-            let mut motion = Alone::new(alone_width(scene), 0.4, -1.5, 0.0);
+            let mut motion =
+                Alone::new(&PaperMotion::default(), alone_width(scene), 0.4, -1.5, 0.0);
             [0.0, 0.05, 0.1, 0.2, 0.3, 0.5].map(|seconds| motion.step(seconds))
         };
         for dense in [at(2.0), at(3.0)] {

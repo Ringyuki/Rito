@@ -10,11 +10,12 @@ import {
 import lifecycle from './fixtures/turn-lifecycle.json';
 
 describe('touch navigation lifecycle', () => {
-  it('settles a canceled swipe back to its outgoing spread', () => {
+  it('sends a swipe taken away back, the reader never having left its spread', () => {
     const scenario = createScenario();
     const moved = beginSwipe(scenario, 200, 100);
 
-    expect(scenario.internals.currentSpread).toBe(1);
+    // A held turn is not decided: the reader is still on its spread.
+    expect(scenario.internals.currentSpread).toBe(0);
     expect(scenario.poolHarness.slots).toEqual({ prev: null, curr: 0, next: 1 });
     expect(scenario.td.mode.kind).toBe('tracking');
 
@@ -26,65 +27,54 @@ describe('touch navigation lifecycle', () => {
     expect(scenario.poolHarness.slots.curr).toBe(0);
     expect(scenario.poolHarness.rotateForward).not.toHaveBeenCalled();
     expect(scenario.poolHarness.rotateBackward).not.toHaveBeenCalled();
-    expect(scenario.notifyActiveSpread).toHaveBeenNthCalledWith(1, 1);
-    expect(scenario.notifyActiveSpread).toHaveBeenNthCalledWith(2, 0);
-    expect(scenario.transitionEnd).toHaveBeenCalledWith(
-      expect.objectContaining({ direction: 'forward' }),
-    );
+    expect(scenario.notifyActiveSpread).not.toHaveBeenCalled();
+    expect(scenario.spreadChange).not.toHaveBeenCalled();
+    expect(scenario.transitionEnd).toHaveBeenCalledWith({
+      direction: 'forward',
+      outcome: 'cancelled',
+    });
     scenario.disposables.disposeAll();
   });
 
-  it('does not emit stale canceled-transition events after notification redirects', () => {
+  it('tells of a turn once, when a key sends on the turn a swipe taken away sent back', () => {
     const scenario = createScenario();
     const moved = beginSwipe(scenario, 200, 100);
     cancelSwipe(scenario, moved, 20);
-    scenario.spreadChange.mockClear();
-    const lifecycle: string[] = [];
-    scenario.transitionStart.mockImplementation(() => {
-      lifecycle.push('start');
-    });
-    scenario.transitionEnd.mockImplementation(() => {
-      lifecycle.push('end');
-    });
-    scenario.notifyActiveSpread.mockImplementation((spreadIndex: number) => {
-      if (spreadIndex === 0) scenario.nav.goToSpread(1);
-    });
+    const events: string[] = [];
+    scenario.transitionEnd.mockImplementation(() => events.push('end'));
+    scenario.spreadChange.mockImplementation(() => events.push('spread'));
 
-    scenario.td.forceSettle();
+    scenario.nav.nextSpread();
 
     expect(scenario.internals.currentSpread).toBe(1);
-    expect(scenario.spreadChange).toHaveBeenCalledOnce();
-    expect(scenario.spreadChange).toHaveBeenCalledWith(expect.objectContaining({ spreadIndex: 1 }));
-    // The cancelled swipe ends (interrupted) before the redirected turn
-    // starts: every start gets exactly one end, and none arrives late.
-    expect(lifecycle).toEqual(['end', 'start']);
-    expect(scenario.transitionEnd).toHaveBeenCalledWith(
-      expect.objectContaining({ outcome: 'interrupted' }),
-    );
-    expect(scenario.td.isAnimating).toBe(true);
-
+    expect(events).toEqual(['spread']);
     settle(scenario.td);
-    expect(lifecycle).toEqual(['end', 'start', 'end']);
+    // One turn, sent on: one start, one end, the spread told once.
+    expect(events).toEqual(['spread', 'end']);
+    expect(scenario.transitionStart).toHaveBeenCalledOnce();
+    expect(scenario.transitionEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'committed' }),
+    );
+    expect(scenario.poolHarness.slots.curr).toBe(1);
     scenario.disposables.disposeAll();
   });
 
-  it('balances the canceled transition lifecycle when notification redirects by snap', () => {
+  it('balances a turn going back that a jump cuts off', () => {
     const scenario = createScenario();
     const moved = beginSwipe(scenario, 200, 100);
     cancelSwipe(scenario, moved, 20);
-    scenario.notifyActiveSpread.mockImplementation((spreadIndex: number) => {
-      if (spreadIndex === 0) scenario.nav.jumpToSpread(1);
-    });
 
-    scenario.td.forceSettle();
+    scenario.nav.jumpToSpread(1);
 
     expect(scenario.internals.currentSpread).toBe(1);
     expect(scenario.td.isAnimating).toBe(false);
     expect(scenario.transitionStart).toHaveBeenCalledOnce();
     expect(scenario.transitionEnd).toHaveBeenCalledOnce();
-    expect(scenario.transitionEnd).toHaveBeenCalledWith(
-      expect.objectContaining({ direction: 'forward' }),
-    );
+    expect(scenario.transitionEnd).toHaveBeenCalledWith({
+      direction: 'forward',
+      outcome: 'interrupted',
+    });
+    expect(scenario.poolHarness.slots.curr).toBe(1);
     scenario.disposables.disposeAll();
   });
 
@@ -113,7 +103,7 @@ describe('touch navigation lifecycle', () => {
     expect(scenario.td.mode.kind).toBe('idle');
     scenario.markContentReady();
 
-    expect(scenario.internals.currentSpread).toBe(1);
+    expect(scenario.internals.currentSpread).toBe(0);
     expect(scenario.td.mode).toMatchObject({ kind: 'tracking', dx: -90 });
     cancelSwipe(scenario, latest, 20);
     expect(scenario.td.mode).toMatchObject({ kind: 'settling', target: 0 });
@@ -207,31 +197,14 @@ describe('touch navigation lifecycle', () => {
     expect(scenario.transitionStart).not.toHaveBeenCalled();
   });
 
-  it('force-settles an owned canceled transition during disposal', () => {
-    const scenario = createScenario();
-    const moved = beginSwipe(scenario, 200, 100);
-    cancelSwipe(scenario, moved, 20);
-    expect(scenario.td.mode).toMatchObject({ kind: 'settling', target: 0 });
-
-    scenario.disposables.disposeAll();
-
-    expect(scenario.td.mode.kind).toBe('idle');
-    expect(scenario.internals.currentSpread).toBe(0);
-    expect(scenario.poolHarness.slots.curr).toBe(0);
-    expect(scenario.poolHarness.rotateForward).not.toHaveBeenCalled();
-    expect(scenario.transitionEnd).toHaveBeenCalledWith(
-      expect.objectContaining({ direction: 'forward' }),
-    );
-  });
-
-  it('cancels and force-settles an actively tracked swipe during disposal', () => {
+  it('sends back a page a finger holds when the touch handler is disposed', () => {
     const scenario = createScenario();
     beginSwipe(scenario, 200, 100);
     expect(scenario.td.mode.kind).toBe('tracking');
 
     scenario.disposables.disposeAll();
 
-    expect(scenario.td.mode.kind).toBe('idle');
+    expect(scenario.td.mode).toMatchObject({ kind: 'settling', target: 0 });
     expect(scenario.internals.currentSpread).toBe(0);
     expect(scenario.poolHarness.slots.curr).toBe(0);
   });
@@ -315,16 +288,17 @@ describe('cutting into a turn in flight', () => {
     const scenario = createScenario(true, 4);
     cancelSwipe(scenario, beginSwipe(scenario, 200, 100), 20);
     scenario.td.step(16);
-    // The reader is still on spread 1 by name, on its way back to 0.
-    expect(scenario.internals.currentSpread).toBe(1);
+    // The reader never left spread 0; the page is on its way back to it.
+    expect(scenario.internals.currentSpread).toBe(0);
 
     scenario.nav.nextSpread();
 
+    // The turn going back is sent on to spread 1, and lands there.
     expect(scenario.internals.currentSpread).toBe(1);
     expect(scenario.poolHarness.slots).toMatchObject({ curr: 0, next: 1 });
     settle(scenario.td);
     expect(scenario.internals.currentSpread).toBe(1);
-    expect(ends(scenario)).toEqual(['cancelled', 'committed']);
+    expect(ends(scenario)).toEqual(['committed']);
     scenario.disposables.disposeAll();
   });
 
@@ -340,11 +314,10 @@ describe('cutting into a turn in flight', () => {
     expect(scenario.td.mode).toMatchObject({
       kind: 'tracking',
       direction: 'forward',
-      outgoingSpread: 0,
-      incomingSpread: 1,
+      hasIncoming: true,
     });
     expect(dxOf(scenario)).toBeCloseTo(returning - 50, 6);
-    expect(scenario.internals.currentSpread).toBe(1);
+    expect(scenario.internals.currentSpread).toBe(0);
     expect(scenario.poolHarness.slots).toMatchObject({ curr: 0, next: 1 });
 
     endSwipe(scenario, moved, 1020);
@@ -388,7 +361,8 @@ describe('cutting into a turn in flight', () => {
     scenario.dom.emit('touchstart', touchEvent([down], [down], 1000));
     scenario.dom.emit('touchend', touchEvent([], [down], 1050));
 
-    expect(scenario.td.mode).toBe(mode);
+    // The same turn, where it was: the mode is read off the engine's motion each time.
+    expect(scenario.td.mode).toStrictEqual(mode);
     expect(ends(scenario)).toEqual([]);
     settle(scenario.td);
     expect(scenario.internals.currentSpread).toBe(1);
@@ -401,8 +375,9 @@ describe('cutting into a turn in flight', () => {
 
     const moved = swipe(scenario, 200, 150);
 
+    // The turn to 1 has landed; the finger's turn to 2 is not decided yet.
     expect(ends(scenario)).toEqual(['committed']);
-    expect(scenario.internals.currentSpread).toBe(2);
+    expect(scenario.internals.currentSpread).toBe(1);
     expect(scenario.td.mode).toMatchObject({ kind: 'tracking', direction: 'forward' });
     // What was left of the first turn, and the finger's 50 px on top of it.
     expect(dxOf(scenario)).toBeCloseTo(before.dx + W - 50, 6);
@@ -422,7 +397,7 @@ describe('cutting into a turn in flight', () => {
 
     const moved = swipe(scenario, 100, 150);
 
-    expect(scenario.internals.currentSpread).toBe(0);
+    expect(scenario.internals.currentSpread).toBe(1);
     expect(scenario.td.mode).toMatchObject({ kind: 'tracking', direction: 'backward' });
     expect(dxOf(scenario)).toBeCloseTo(before.dx + W + 50, 6);
 
@@ -441,7 +416,7 @@ describe('cutting into a turn in flight', () => {
 
     expect(scenario.poolHarness.rotateForward).toHaveBeenCalledOnce();
     expect(ends(scenario)).toEqual(['committed']);
-    expect(scenario.td.mode).toMatchObject({ kind: 'tracking', incomingSpread: null });
+    expect(scenario.td.mode).toMatchObject({ kind: 'tracking', hasIncoming: false });
     // The pull is resisted; what was left of the turn is not.
     const pulled = dxOf(scenario) - (before.dx + W);
     expect(pulled).toBeLessThan(0);
@@ -478,7 +453,8 @@ describe('cutting into a turn in flight', () => {
     scenario.markContentReady(0);
 
     // The turn back never begins under the finger.
-    expect(scenario.td.mode).toMatchObject({ kind: 'tracking', incomingSpread: null });
+    expect(scenario.td.mode).toMatchObject({ kind: 'tracking', hasIncoming: false });
+    expect(scenario.transitionStart).toHaveBeenCalledOnce();
     expect(scenario.internals.currentSpread).toBe(1);
     scenario.disposables.disposeAll();
   });

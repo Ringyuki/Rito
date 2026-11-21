@@ -3,15 +3,12 @@ import { createFrameDriver, type FrameDriver } from '../driver/frame-driver';
 import type { TransitionDriver } from '../driver/transition-driver';
 import type { ContentRenderer, OverlayProvider, PageBufferPool } from '../painter/buffer-pool';
 import type { DisplaySurface } from '../painter/display-surface';
-import { commitCurrentSpread } from './core/current-spread';
-import { publishSpreadChange } from './core/spread-change';
 import { syncCanvasSize, type Internals } from './facade';
 import type { Emitter, RuntimeComponents } from './facade/types';
 import { createCoordinateMapper } from './geometry/coordinate-mapper';
 import { paintPagesOver } from './page-paint';
 import { mergeOverlayLayers } from './overlay/merger';
 import { buildOverlayData } from './overlay/projection';
-import type { PrerenderScheduler } from './prerender';
 import { transitionLifecycle } from './core/transition-lifecycle';
 
 interface RuntimeFrameParts {
@@ -111,55 +108,6 @@ export function scheduleControllerPrerender(
   });
 }
 
-export function wireSettledEvents(
-  internals: Internals,
-  transitionDriver: TransitionDriver,
-  pool: PageBufferPool,
-  emitter: Emitter,
-  frameDriver: FrameDriver,
-  reader: Reader,
-  contentRenderer: ContentRenderer,
-  prerenderScheduler: PrerenderScheduler,
-): () => void {
-  const prerender = (eagerPosition?: 'next' | 'prev'): void => {
-    prerenderScheduler.schedule({
-      getCurrentSpread: () => internals.currentSpread,
-      isAnimating: () => transitionDriver.isAnimating,
-      reader,
-      pool,
-      contentRenderer,
-      ...(eagerPosition ? { eagerPosition } : {}),
-      painted: () => {
-        frameDriver.warmTransition();
-      },
-    });
-  };
-  // A turn cut into was settled while its picture still moved, when the
-  // neighbours could not be painted ahead; once it is still they can be.
-  const stopWatchingRest = transitionDriver.onRest(() => {
-    prerender();
-  });
-  const stopWatchingSettled = transitionDriver.onSettled((event) => {
-    if (event.committed) {
-      if (event.direction === 'forward') pool.rotateForward();
-      else pool.rotateBackward();
-      commitCurrentSpread(internals, event.targetSpread, 'settle-commit');
-      prerender(event.direction === 'forward' ? 'next' : 'prev');
-    } else {
-      restoreCanceledTransition(internals, emitter, reader, event.targetSpread);
-    }
-    // A listener above may have begun another turn, which ended this one itself.
-    if (!transitionDriver.turning) {
-      transitionLifecycle(emitter).end(event.committed ? 'committed' : 'cancelled');
-    }
-    frameDriver.scheduleComposite();
-  });
-  return () => {
-    stopWatchingRest();
-    stopWatchingSettled();
-  };
-}
-
 function buildOverlayProvider(internals: Internals, reader: Reader): OverlayProvider {
   return (spreadIndex) => {
     const spread = reader.spreads[spreadIndex];
@@ -200,20 +148,4 @@ function reportPainterError(emitter: Emitter, error: unknown): void {
   } catch {
     // A throwing error listener must not hold the page back either.
   }
-}
-
-function restoreCanceledTransition(
-  internals: Internals,
-  emitter: Emitter,
-  reader: Reader,
-  outgoing: number,
-): void {
-  if (internals.currentSpread === outgoing) return;
-  console.error(
-    `[rito] page turn settled uncommitted, snapping back from spread ${String(internals.currentSpread)} to ${String(outgoing)}`,
-  );
-  commitCurrentSpread(internals, outgoing, 'settle-snap-back');
-  reader.notifyActiveSpread(outgoing);
-  if (internals.currentSpread !== outgoing) return;
-  publishSpreadChange(emitter, reader, outgoing);
 }

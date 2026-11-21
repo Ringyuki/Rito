@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Reader, ReaderLocator, ReaderLocatorResolution, TocEntry } from '@ritojs/core';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
+import { fakeTurns } from './helpers/fake-turns';
 
 describe('locator navigation', () => {
   it('resolves a generic internal-link locator through the same atomic owner', async () => {
@@ -14,7 +15,7 @@ describe('locator navigation', () => {
     await settleTasks();
 
     expect(fixture.current()).toBe(3);
-    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 3);
+    expect(fixture.commands).toEqual([['next', 0, 3]]);
   });
 
   it('reports an unresolved internal-link locator without pretending to navigate', async () => {
@@ -52,7 +53,7 @@ describe('locator navigation', () => {
 
     expect(fixture.current()).toBe(2);
     expect(fixture.notifyActiveSpread).toHaveBeenCalledWith(2);
-    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 2);
+    expect(fixture.commands).toEqual([['next', 0, 2]]);
   });
 
   it('uses latest-wins ownership and ignores an older locator completion', async () => {
@@ -71,7 +72,7 @@ describe('locator navigation', () => {
     fixture.request(1).resolve(resolvedLocator('latest.xhtml', 1));
     await settleTasks();
     expect(fixture.current()).toBe(1);
-    expect(fixture.goToTarget).toHaveBeenCalledOnce();
+    expect(fixture.commands).toHaveLength(1);
   });
 
   it('lets a selection input cancel a pending locator seek without a late jump', async () => {
@@ -90,7 +91,7 @@ describe('locator navigation', () => {
     await settleTasks();
 
     expect(fixture.current()).toBe(0);
-    expect(fixture.goToTarget).not.toHaveBeenCalled();
+    expect(fixture.commands).toEqual([]);
   });
 
   it('aborts locator ownership on disposal and contains a late rejection', async () => {
@@ -150,7 +151,7 @@ describe('locator navigation', () => {
     await settleTasks();
 
     expect(fixture.current()).toBe(0);
-    expect(fixture.goToTarget).not.toHaveBeenCalled();
+    expect(fixture.commands).toEqual([]);
     expect(fixture.emit).toHaveBeenCalledWith('error', {
       message: 'Reader locator navigation resolved outside its committed spread extent',
       source: 'reader TOC locator navigation',
@@ -159,7 +160,7 @@ describe('locator navigation', () => {
 
   it('restores position ownership when resolved navigation continuation throws', async () => {
     const fixture = createFixture();
-    fixture.setContentFailure(new Error('slot failed'));
+    fixture.setTurnFailure(new Error('slot failed'));
 
     fixture.nav.navigateToTocEntry(fixture.entry('chapter.xhtml'));
     fixture.request(0).resolve(resolvedLocator('chapter.xhtml', 1));
@@ -205,10 +206,16 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
     notifyActiveSpread,
     ...(options.locatorNavigation === false ? {} : { navigateToLocator }),
   } as unknown as Reader;
-  const goToTarget = vi.fn();
+  // A turn lands the reader on its spread, which the reader is told of.
+  const turns = fakeTurns(
+    () => currentSpread,
+    (spread) => {
+      currentSpread = spread;
+      notifyActiveSpread(spread);
+    },
+  );
   const emit = vi.fn();
   const onNavigationCancelled = vi.fn();
-  let contentFailure: Error | undefined;
   const deps = {
     getReader: () => reader,
     getCurrentSpread: () => currentSpread,
@@ -217,22 +224,13 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
     },
     getRenderScale: () => 1,
     emitter: { emit },
-    td: {
-      isAnimating: false,
-      turning: false,
-      handOver: vi.fn(),
-      viewportWidth: 800,
-      forceSettle: vi.fn(),
-      goToTarget,
-    },
+    td: turns.td,
+    turnTargets: turns.turnTargets,
     frameDriver: { scheduleComposite: vi.fn() },
     pool: {
       getSlotFor: vi.fn(() => null),
       assignSlot: vi.fn(),
-      ensureContent: vi.fn(() => {
-        if (contentFailure) throw contentFailure;
-        return true;
-      }),
+      ensureContent: vi.fn(() => true),
     },
     contentRenderer: vi.fn(),
     onNavigationIntent: vi.fn(),
@@ -243,12 +241,15 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
     navigateToLocator,
     resolveToc,
     notifyActiveSpread,
-    goToTarget,
+    commands: turns.commands,
     emit,
     onNavigationCancelled,
     current: () => currentSpread,
-    setContentFailure(error: Error) {
-      contentFailure = error;
+    /** The turn fails as it is commanded. */
+    setTurnFailure(error: Error) {
+      turns.command.mockImplementation(() => {
+        throw error;
+      });
     },
     entry: (href: string): TocEntry => ({ label: href, href, children: [] }),
     request: (index: number) => requiredRequest(requests, index),

@@ -7,7 +7,7 @@ const double _slop = 5;
 /// The drag that turns a page, taken as the web reader takes one: by the
 /// first finger down, a touch or a stylus (a mouse selects text instead),
 /// once it has moved [_slop] px either way from where it came down — which
-/// is where it took hold — every sample at its event's time. A finger
+/// is where and when it took hold — every sample at its event's time. A finger
 /// lifted before it moved that far is a tap, left to whatever wants taps.
 /// One that moves that far across the way pages turn ([alongTheTurn]: up
 /// or down the page, as pages turn) is no drag yet: it is followed from
@@ -22,7 +22,8 @@ final class RitoPageTurnDragRecognizer extends OneSequenceGestureRecognizer {
         },
       );
 
-  /// The finger came down at [down] and has moved far enough, at [at].
+  /// The finger took hold at [down], at [at], and has since moved far
+  /// enough: where and when it came down, or went across from.
   void Function(Offset down, Duration at)? onStart;
   void Function(Offset position, Duration at)? onUpdate;
 
@@ -39,6 +40,7 @@ final class RitoPageTurnDragRecognizer extends OneSequenceGestureRecognizer {
 
   int? _pointer;
   Offset _down = Offset.zero;
+  Duration _downAt = Duration.zero;
 
   /// The move that took the finger past the slop, or the latest since.
   PointerMoveEvent? _moved;
@@ -56,6 +58,7 @@ final class RitoPageTurnDragRecognizer extends OneSequenceGestureRecognizer {
     super.addAllowedPointer(event);
     _pointer = event.pointer;
     _down = event.localPosition;
+    _downAt = event.timeStamp;
     _moved = null;
     _won = false;
     _accepted = false;
@@ -78,6 +81,7 @@ final class RitoPageTurnDragRecognizer extends OneSequenceGestureRecognizer {
       if (_moved == null && !_along(moved)) {
         // Sliding across the way pages turn: followed from where it is.
         _down = event.localPosition;
+        _downAt = event.timeStamp;
         return;
       }
       _moved = event;
@@ -115,7 +119,7 @@ final class RitoPageTurnDragRecognizer extends OneSequenceGestureRecognizer {
     final moved = _moved;
     if (_accepted || moved == null) return;
     _accepted = true;
-    onStart?.call(_down, moved.timeStamp);
+    onStart?.call(_down, _downAt);
     onUpdate?.call(moved.localPosition, moved.timeStamp);
   }
 

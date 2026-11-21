@@ -1,774 +1,363 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Reader, Spread } from '@ritojs/core';
-import {
-  createNavigation,
-  type GestureNavigationToken,
-  type NavigationDeps,
-} from '../src/controller/navigation';
+import type { Reader, TocEntry } from '@ritojs/core';
+import type { Internals } from '../src/controller/facade';
+import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
+import type { ReaderControllerEvents } from '../src/controller/types';
+import { createEmitter } from '../src/utils/event-emitter';
+import { fakeTurns } from './helpers/fake-turns';
+import { createPoolHarness, createRealTurns } from './helpers/real-turns';
 
-function createNotifyRedirectFixture() {
-  let currentSpread = 0;
-  let redirected = false;
+// Turns a page whose spread is not painted yet: the engine asks for the
+// page and waits for it, and the kit tells it when it is painted. Whatever
+// else the reader is asked meanwhile takes the place of the waiting turn.
+
+interface Waiting {
+  readonly nav: ReturnType<typeof createNavigation>;
+  readonly internals: { currentSpread: number };
+  readonly slots: ReturnType<typeof createPoolHarness>['slots'];
+  readonly td: ReturnType<typeof createRealTurns>['td'];
+  /** The page of `spread` is painted, and the reader is told. */
+  readonly paint: (spread: number) => void;
+  readonly events: string[];
+  readonly notified: number[];
+  readonly emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>;
+  /** Called as the reader is told of each spread it is on. */
+  onNotify: (spread: number) => void;
+  readonly onNavigationIntent: ReturnType<typeof vi.fn>;
+  readonly onContentInteractionIntent: ReturnType<typeof vi.fn>;
+  readonly onNavigationCancelled: ReturnType<typeof vi.fn>;
+  readonly dispose: () => void;
+}
+
+/** A reader of `total` spreads on spread 0, only spread 0 painted. */
+function waiting(total = 4, extra: { readonly toc?: (entry: TocEntry) => number } = {}): Waiting {
+  const painted = new Set([0]);
   const notified: number[] = [];
-  const spreadEvents: number[] = [];
-  const redirect: { current?: () => void } = {};
-  const goToTarget = vi.fn();
-  const scheduleComposite = vi.fn();
-  const spreads = [{}, {}, {}];
+  const internals = { currentSpread: 0 };
   const reader = {
-    totalSpreads: spreads.length,
-    spreads,
-    notifyActiveSpread: vi.fn((spreadIndex: number) => {
-      notified.push(spreadIndex);
-      if (spreadIndex !== 1 || redirected) return;
-      redirected = true;
-      redirect.current?.();
-    }),
-  } as unknown as Reader;
-  const deps = {
-    getReader: () => reader,
-    getCurrentSpread: () => currentSpread,
-    setCurrentSpread: (index: number) => {
-      currentSpread = index;
+    totalSpreads: total,
+    spreads: Array.from({ length: total }, (_, index) => ({ index })),
+    notifyActiveSpread: (spread: number) => {
+      notified.push(spread);
+      state.onNotify(spread);
     },
-    emitter: {
+    resolveTocEntry: (entry: TocEntry) => {
+      const spreadIndex = extra.toc?.(entry);
+      return spreadIndex === undefined ? undefined : { pageIndex: spreadIndex, spreadIndex };
+    },
+  } as unknown as Reader;
+  const { pool, slots } = createPoolHarness((index) => index !== null && painted.has(index));
+  const emitter = createEmitter<ReaderControllerEvents>();
+  const events: string[] = [];
+  emitter.on('transitionStart', ({ direction }) => events.push(`start:${direction}`));
+  emitter.on('transitionEnd', ({ outcome }) => events.push(`end:${outcome}`));
+  emitter.on('spreadChange', ({ spreadIndex }) => events.push(`spread:${String(spreadIndex)}`));
+  const turns = createRealTurns({
+    internals: internals as unknown as Internals,
+    reader,
+    pool,
+    emitter,
+  });
+  const onNavigationIntent = vi.fn();
+  const onContentInteractionIntent = vi.fn();
+  const onNavigationCancelled = vi.fn();
+  const nav = createNavigation({
+    getReader: () => reader,
+    getCurrentSpread: () => internals.currentSpread,
+    setCurrentSpread: (index: number) => {
+      internals.currentSpread = index;
+    },
+    getRenderScale: () => 1,
+    emitter,
+    td: turns.td,
+    turnTargets: turns.turnTargets,
+    frameDriver: turns.frameDriver,
+    pool,
+    contentRenderer: vi.fn(() => true),
+    onNavigationIntent,
+    onContentInteractionIntent,
+    onNavigationCancelled,
+  });
+  const state: Waiting = {
+    nav,
+    internals,
+    slots,
+    td: turns.td,
+    paint: (spread) => {
+      painted.add(spread);
+      nav.notifyContentReady(spread);
+    },
+    events,
+    notified,
+    emitter,
+    onNotify: () => undefined,
+    onNavigationIntent,
+    onContentInteractionIntent,
+    onNavigationCancelled,
+    dispose: () => {
+      nav.dispose();
+      turns.dispose();
+    },
+  };
+  return state;
+}
+
+function settle(td: Waiting['td']): void {
+  for (let frame = 0; td.isAnimating && frame < 500; frame += 1) td.step(16);
+}
+
+describe('a turn waiting for its page', () => {
+  it('claims the position intent, asks for its page and begins once it is painted', () => {
+    const reader = waiting();
+
+    reader.nav.goToSpread(1);
+
+    expect(reader.onNavigationIntent).toHaveBeenCalledOnce();
+    expect(reader.onContentInteractionIntent).toHaveBeenCalledOnce();
+    expect(reader.internals.currentSpread).toBe(0);
+    expect(reader.slots.next).toBe(1);
+    expect(reader.td.turning).toBe(false);
+    expect(reader.events).toEqual([]);
+
+    reader.paint(1);
+
+    // It begins and lands at once: the reader is on spread 1 before it moves.
+    expect(reader.events).toEqual(['start:forward', 'spread:1']);
+    expect(reader.internals.currentSpread).toBe(1);
+    expect(reader.notified).toEqual([1]);
+    settle(reader.td);
+    expect(reader.events).toEqual(['start:forward', 'spread:1', 'end:committed']);
+    expect(reader.slots.curr).toBe(1);
+    reader.dispose();
+  });
+
+  it('brings a spread further off into its slot, and lands there', () => {
+    const reader = waiting();
+
+    reader.nav.goToSpread(3);
+    expect(reader.slots.next).toBe(3);
+    reader.paint(3);
+    settle(reader.td);
+
+    expect(reader.internals.currentSpread).toBe(3);
+    expect(reader.slots.curr).toBe(3);
+    // Turns from there go to its neighbours again.
+    reader.paint(2);
+    reader.nav.prevSpread();
+    expect(reader.internals.currentSpread).toBe(2);
+    reader.dispose();
+  });
+
+  it('gives way to a turn asked for after it', () => {
+    const reader = waiting();
+
+    reader.nav.goToSpread(3);
+    reader.nav.nextSpread();
+    reader.paint(3);
+    expect(reader.td.turning).toBe(false);
+    reader.paint(1);
+
+    expect(reader.internals.currentSpread).toBe(1);
+    expect(reader.events).toEqual(['start:forward', 'spread:1']);
+    reader.dispose();
+  });
+
+  it('is withdrawn by a navigation to where the reader already is', () => {
+    const reader = waiting(4, { toc: () => 0 });
+
+    reader.nav.goToSpread(1);
+    reader.nav.goToSpread(0);
+    expect(reader.onNavigationCancelled).toHaveBeenCalledOnce();
+    reader.paint(1);
+    expect(reader.td.turning).toBe(false);
+
+    reader.nav.goToSpread(2);
+    reader.nav.navigateToTocEntry({ label: 'Here', href: 'here.xhtml', children: [] });
+    expect(reader.onNavigationCancelled).toHaveBeenCalledTimes(2);
+    reader.paint(2);
+
+    expect(reader.internals.currentSpread).toBe(0);
+    expect(reader.events).toEqual([]);
+    reader.dispose();
+  });
+
+  it('is dropped silently by a selection or a position asked for meanwhile', () => {
+    const reader = waiting();
+
+    reader.nav.goToSpread(1);
+    reader.nav.supersedeForSelectionIntent();
+    reader.paint(1);
+    reader.nav.goToSpread(3);
+    reader.nav.supersedeForPositionIntent();
+    reader.paint(3);
+
+    expect(reader.internals.currentSpread).toBe(0);
+    expect(reader.td.turning).toBe(false);
+    expect(reader.events).toEqual([]);
+    expect(reader.onNavigationCancelled).not.toHaveBeenCalled();
+    expect(reader.onContentInteractionIntent).toHaveBeenCalledTimes(4);
+    reader.dispose();
+  });
+
+  it('gives way to a TOC entry, and to a jump', () => {
+    const reader = waiting(4, { toc: () => 2 });
+
+    reader.nav.goToSpread(1);
+    reader.nav.navigateToTocEntry({ label: 'Two', href: 'two.xhtml', children: [] });
+    reader.paint(1);
+    expect(reader.td.turning).toBe(false);
+    reader.paint(2);
+    settle(reader.td);
+    expect(reader.internals.currentSpread).toBe(2);
+
+    reader.nav.goToSpread(3);
+    reader.nav.jumpToSpread(0);
+    reader.paint(3);
+    expect(reader.internals.currentSpread).toBe(0);
+    expect(reader.slots.curr).toBe(0);
+    expect(reader.td.turning).toBe(false);
+    reader.dispose();
+  });
+});
+
+describe('a listener that redirects', () => {
+  it('as a turn lands: the turn it asks for follows from the spread just landed on', () => {
+    const reader = waiting();
+    reader.paint(1);
+    reader.paint(2);
+    // The reader is told of spread 1 first, and asks for 2 there and then.
+    reader.onNotify = (spread) => {
+      if (spread === 1) reader.nav.goToSpread(2);
+    };
+
+    reader.nav.goToSpread(1);
+    settle(reader.td);
+
+    expect(reader.internals.currentSpread).toBe(2);
+    expect(reader.notified).toEqual([1, 2]);
+    // Two turns, each landed and told: the second carries on from the first.
+    expect(reader.events.filter((event) => event.startsWith('spread'))).toEqual([
+      'spread:1',
+      'spread:2',
+    ]);
+    expect(reader.events.filter((event) => event.startsWith('end'))).toEqual([
+      'end:committed',
+      'end:committed',
+    ]);
+    expect(reader.slots.curr).toBe(2);
+    reader.dispose();
+  });
+
+  it('as the turn on screen settles for a selection: the selection loses the reader', () => {
+    const reader = waiting();
+    reader.paint(1);
+    reader.paint(2);
+    reader.nav.goToSpread(1);
+    reader.td.step(16);
+    const redirect = vi.fn(() => {
+      reader.nav.goToSpread(2);
+    });
+    reader.emitter.on('transitionEnd', ({ outcome }) => {
+      if (outcome === 'committed' && redirect.mock.calls.length === 0) redirect();
+    });
+
+    const barrier = reader.nav.supersedeForSelectionIntent();
+
+    expect(barrier).toBeNull();
+    expect(redirect).toHaveBeenCalledOnce();
+    expect(reader.internals.currentSpread).toBe(2);
+    reader.dispose();
+  });
+
+  it('as a jump cuts off the turn on screen: the stale jump never lands', () => {
+    const reader = waiting();
+    reader.paint(1);
+    reader.paint(2);
+    reader.nav.goToSpread(1);
+    reader.td.step(16);
+    let redirected = false;
+    reader.emitter.on('transitionEnd', ({ outcome }) => {
+      if (outcome !== 'interrupted' || redirected) return;
+      redirected = true;
+      reader.nav.goToSpread(2);
+    });
+
+    reader.nav.jumpToSpread(3, true);
+
+    expect(reader.internals.currentSpread).toBe(2);
+    expect(reader.notified).not.toContain(3);
+    reader.dispose();
+  });
+});
+
+describe('a jump whose listener redirects', () => {
+  function jumpingReader() {
+    let currentSpread = 0;
+    const notified: number[] = [];
+    const spreadEvents: number[] = [];
+    const redirect: { current?: () => void } = {};
+    const emitter = {
       emit: vi.fn((event: string, payload: { spreadIndex?: number }) => {
         if (event === 'spreadChange' && payload.spreadIndex !== undefined) {
           spreadEvents.push(payload.spreadIndex);
         }
       }),
-    },
-    td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
-    frameDriver: { scheduleComposite },
-    pool: {
-      getSlotFor: vi.fn(() => null),
-      assignSlot: vi.fn(),
-      ensureContent: vi.fn(() => true),
-      jump: vi.fn(),
-    },
-    contentRenderer: vi.fn(),
-    onNavigationIntent: vi.fn(),
-  } as unknown as NavigationDeps;
-  const nav = createNavigation(deps);
-  redirect.current = () => {
-    nav.goToSpread(2);
-  };
-  return {
-    nav,
-    deps,
-    notified,
-    spreadEvents,
-    goToTarget,
-    scheduleComposite,
-    getCurrentSpread: () => currentSpread,
-  };
-}
-
-describe('navigation deferred content', () => {
-  it('claims position intent before waiting for async content', () => {
-    let currentSpread = 0;
-    const onNavigationIntent = vi.fn();
-    const onContentInteractionIntent = vi.fn();
-    const reader = {
-      totalSpreads: 2,
-      spreads: [{}, {}],
-      notifyActiveSpread: vi.fn(),
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: { emit: vi.fn() },
-      td: {
-        isAnimating: false,
-        turning: false,
-        handOver: vi.fn(),
-        viewportWidth: 800,
-        forceSettle: vi.fn(),
-        goToTarget: vi.fn(),
-      },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => false),
-        jump: vi.fn(),
-      },
-      contentRenderer: vi.fn(),
-      onNavigationIntent,
-      onContentInteractionIntent,
-    } as unknown as NavigationDeps;
-
-    createNavigation(deps).goToSpread(1);
-
-    expect(onNavigationIntent).toHaveBeenCalledOnce();
-    expect(onContentInteractionIntent).toHaveBeenCalledOnce();
-    expect(currentSpread).toBe(0);
-  });
-
-  it('recaptures when pending navigation is replaced by a no-op current target', () => {
-    let currentSpread = 0;
-    let tocSpread: number | undefined = 0;
-    const onNavigationCancelled = vi.fn();
-    const entry = { label: 'Current', href: 'current.xhtml', children: [] };
-    const reader = {
-      totalSpreads: 2,
-      spreads: [{}, {}],
-      resolveTocEntry: vi.fn(() =>
-        tocSpread === undefined ? undefined : { pageIndex: 0, spreadIndex: tocSpread },
-      ),
-      notifyActiveSpread: vi.fn(),
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: { emit: vi.fn() },
-      td: {
-        isAnimating: false,
-        turning: false,
-        handOver: vi.fn(),
-        viewportWidth: 800,
-        forceSettle: vi.fn(),
-        goToTarget: vi.fn(),
-      },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => false),
-        jump: vi.fn(),
-      },
-      contentRenderer: vi.fn(),
-      onNavigationIntent: vi.fn(),
-      onNavigationCancelled,
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-
-    nav.goToSpread(1);
-    nav.goToSpread(0);
-    nav.startGestureNavigation(1, vi.fn());
-    nav.navigateToTocEntry(entry);
-    tocSpread = undefined;
-    nav.navigateToTocEntry(entry);
-    nav.startGestureNavigation(1, vi.fn());
-    nav.jumpToSpread(0, true);
-
-    expect(onNavigationCancelled).toHaveBeenCalledTimes(3);
-    expect(currentSpread).toBe(0);
-  });
-
-  it('silently clears older pending work for selection and position intents', () => {
-    let currentSpread = 0;
-    let contentReady = false;
-    const onNavigationCancelled = vi.fn();
-    const onContentInteractionIntent = vi.fn();
-    const gestureStarted = vi.fn();
-    const goToTarget = vi.fn();
-    const reader = {
-      totalSpreads: 3,
-      spreads: [{}, {}, {}],
-      notifyActiveSpread: vi.fn(),
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: { emit: vi.fn() },
-      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => contentReady),
-      },
-      contentRenderer: vi.fn(),
-      onNavigationIntent: vi.fn(),
-      onContentInteractionIntent,
-      onNavigationCancelled,
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-
-    const gesture = nav.startGestureNavigation(1, gestureStarted);
-    nav.supersedeForSelectionIntent();
-    contentReady = true;
-    nav.notifyContentReady(1);
-    gesture.cancel();
-
-    contentReady = false;
-    nav.goToSpread(2);
-    nav.supersedeForPositionIntent();
-    contentReady = true;
-    nav.notifyContentReady(2);
-
-    expect(currentSpread).toBe(0);
-    expect(goToTarget).not.toHaveBeenCalled();
-    expect(gestureStarted).not.toHaveBeenCalled();
-    expect(onNavigationCancelled).not.toHaveBeenCalled();
-    expect(onContentInteractionIntent).toHaveBeenCalledTimes(4);
-  });
-
-  it('rejects a selection barrier superseded from a force-settle callback', () => {
-    let currentSpread = 0;
-    let animating = true;
-    const navigation: { current?: ReturnType<typeof createNavigation> } = {};
-    const goToTarget = vi.fn();
-    const onNavigationIntent = vi.fn();
-    const reader = {
-      totalSpreads: 3,
-      spreads: [{}, {}, {}],
-      notifyActiveSpread: vi.fn(),
-    } as unknown as Reader;
-    const forceSettle = vi.fn(() => {
-      animating = false;
-      navigation.current?.goToSpread(2);
-      return 0;
-    });
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: { emit: vi.fn() },
-      td: {
-        get isAnimating() {
-          return animating;
-        },
-        get turning() {
-          return animating;
-        },
-        handOver: vi.fn(),
-        forceSettle,
-        goToTarget,
-      },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => true),
-      },
-      contentRenderer: vi.fn(),
-      onNavigationIntent,
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-    navigation.current = nav;
-
-    const barrier = nav.supersedeForSelectionIntent();
-
-    expect(forceSettle).toHaveBeenCalledOnce();
-    expect(barrier).toBeNull();
-    expect(onNavigationIntent).toHaveBeenCalledOnce();
-    expect(currentSpread).toBe(2);
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2);
-  });
-
-  it('does not let a stale jump overwrite navigation from its force-settle callback', () => {
-    let currentSpread = 0;
-    let animating = true;
-    const navigation: { current?: ReturnType<typeof createNavigation> } = {};
-    const notified: number[] = [];
-    const goToTarget = vi.fn();
-    const jump = vi.fn();
+    };
     const reader = {
       totalSpreads: 3,
       spreads: [{}, {}, {}],
       notifyActiveSpread: vi.fn((spreadIndex: number) => {
         notified.push(spreadIndex);
+        if (spreadIndex === 1) redirect.current?.();
       }),
     } as unknown as Reader;
-    const forceSettle = vi.fn(() => {
-      animating = false;
-      navigation.current?.goToSpread(2);
-      return 0;
-    });
-    const deps = {
+    // A turn lands the reader on its spread, as the kit's turns do.
+    const turns = fakeTurns(
+      () => currentSpread,
+      (spread) => {
+        currentSpread = spread;
+        reader.notifyActiveSpread(spread);
+        emitter.emit('spreadChange', { spreadIndex: spread });
+      },
+    );
+    const scheduleComposite = vi.fn();
+    const nav = createNavigation({
       getReader: () => reader,
       getCurrentSpread: () => currentSpread,
       setCurrentSpread: (index: number) => {
         currentSpread = index;
       },
-      emitter: { emit: vi.fn() },
-      td: {
-        get isAnimating() {
-          return animating;
-        },
-        get turning() {
-          return animating;
-        },
-        handOver: vi.fn(),
-        forceSettle,
-        goToTarget,
-      },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => true),
-        jump,
-      },
+      emitter,
+      td: turns.td,
+      turnTargets: turns.turnTargets,
+      frameDriver: { scheduleComposite },
+      pool: { jump: vi.fn(), ensureContent: vi.fn(() => true) },
       contentRenderer: vi.fn(),
       onNavigationIntent: vi.fn(),
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-    navigation.current = nav;
+    } as unknown as NavigationDeps);
+    return {
+      nav,
+      redirect,
+      notified,
+      spreadEvents,
+      commands: turns.commands,
+      scheduleComposite,
+      current: () => currentSpread,
+    };
+  }
 
-    nav.jumpToSpread(1, true);
-
-    expect(forceSettle).toHaveBeenCalledOnce();
-    expect(currentSpread).toBe(2);
-    expect(notified).toEqual([2]);
-    expect(jump).not.toHaveBeenCalled();
-    expect(goToTarget).toHaveBeenCalledOnce();
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2);
-  });
-
-  it('installs jump content before a spread listener can redirect synchronously', () => {
-    let currentSpread = 0;
-    const order: string[] = [];
-    const notifyActiveSpread = vi.fn((spreadIndex: number) => {
-      order.push(`notify:${String(spreadIndex)}`);
-    });
-    const reader = {
-      totalSpreads: 3,
-      spreads: [{}, {}, {}],
-      notifyActiveSpread,
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: {
-        emit: vi.fn((event: string) => {
-          if (event === 'spreadChange') {
-            order.push('spreadChange');
-            currentSpread = 2;
-          }
-        }),
-      },
-      td: { isAnimating: false, turning: false, handOver: vi.fn() },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: { jump: vi.fn(), ensureContent: vi.fn() },
-      contentRenderer: vi.fn(),
-    } as unknown as NavigationDeps;
-
-    createNavigation(deps).jumpToSpread(1, true);
-
-    expect(currentSpread).toBe(2);
-    expect(order).toEqual(['notify:1', 'spreadChange']);
-  });
-
-  it('does not emit a stale jump event when active-spread notification redirects', () => {
-    const fixture = createNotifyRedirectFixture();
-
-    fixture.nav.jumpToSpread(1, true);
-
-    expect(fixture.getCurrentSpread()).toBe(2);
-    expect(fixture.notified).toEqual([1, 2]);
-    expect(fixture.spreadEvents).toEqual([2]);
-    expect(fixture.goToTarget).toHaveBeenCalledOnce();
-    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 1, 2);
-    expect(fixture.scheduleComposite).toHaveBeenCalledOnce();
-  });
-
-  it('does not resume an old transition after a spread listener redirects synchronously', () => {
-    let currentSpread = 0;
-    const redirect: { current?: () => void } = {};
-    const notified: number[] = [];
-    const notifyActiveSpread = vi.fn((spreadIndex: number) => {
-      notified.push(spreadIndex);
-    });
-    const goToTarget = vi.fn();
-    const reader = {
-      totalSpreads: 3,
-      spreads: [{}, {}, {}],
-      notifyActiveSpread,
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: {
-        emit: vi.fn((event: string) => {
-          if (event === 'spreadChange') redirect.current?.();
-        }),
-      },
-      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => true),
-      },
-      contentRenderer: vi.fn(),
-      onNavigationIntent: vi.fn(),
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-    redirect.current = () => {
-      nav.goToSpread(2);
+  it('installs the jump before the listener can redirect, and tells only where it went', () => {
+    const jumping = jumpingReader();
+    jumping.redirect.current = () => {
+      jumping.nav.goToSpread(2);
     };
 
-    nav.goToSpread(1);
+    jumping.nav.jumpToSpread(1, true);
 
-    expect(currentSpread).toBe(2);
-    expect(notified).toEqual([1, 2]);
-    expect(goToTarget).not.toHaveBeenCalled();
-  });
-
-  it('does not emit a stale transition event when active-spread notification redirects', () => {
-    const fixture = createNotifyRedirectFixture();
-
-    fixture.nav.goToSpread(1);
-
-    expect(fixture.getCurrentSpread()).toBe(2);
-    expect(fixture.notified).toEqual([1, 2]);
-    expect(fixture.spreadEvents).toEqual([2]);
-    expect(fixture.goToTarget).toHaveBeenCalledOnce();
-    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 1, 2);
-    expect(fixture.scheduleComposite).toHaveBeenCalledOnce();
-  });
-
-  it('preserves a nested deferred request when the outer spread listener redirects', () => {
-    let currentSpread = 0;
-    let redirected = false;
-    const goToTarget = vi.fn();
-    const ensureContent = vi
-      .fn<() => boolean>()
-      .mockReturnValueOnce(true)
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
-    const reader = {
-      totalSpreads: 3,
-      spreads: [{}, {}, {}],
-      notifyActiveSpread: vi.fn(),
-    } as unknown as Reader;
-    const redirect: { current?: () => void } = {};
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: {
-        emit: vi.fn((event: string) => {
-          if (event !== 'spreadChange' || redirected) return;
-          redirected = true;
-          redirect.current?.();
-        }),
-      },
-      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent,
-      },
-      contentRenderer: vi.fn(),
-      onNavigationIntent: vi.fn(),
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-    redirect.current = () => {
-      nav.goToSpread(2);
-    };
-
-    nav.goToSpread(1);
-
-    expect(currentSpread).toBe(1);
-    expect(goToTarget).not.toHaveBeenCalled();
-
-    nav.notifyContentReady(2);
-
-    expect(currentSpread).toBe(2);
-    expect(goToTarget).toHaveBeenCalledOnce();
-    expect(goToTarget).toHaveBeenCalledWith('forward', 1, 2);
-  });
-
-  it('waits for an async content slot before starting the page turn', () => {
-    let currentSpread = 0;
-    const spread = {} as Spread;
-    const goToTarget = vi.fn();
-    const emit = vi.fn();
-    const ensureContent = vi.fn(() => false);
-    const scheduleComposite = vi.fn();
-    const notifyActiveSpread = vi.fn();
-    const reader = {
-      totalSpreads: 3,
-      spreads: [spread, spread, spread],
-      notifyActiveSpread,
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      getRenderScale: () => 1,
-      emitter: { emit },
-      td: {
-        isAnimating: false,
-        turning: false,
-        handOver: vi.fn(),
-        viewportWidth: 800,
-        forceSettle: vi.fn(() => 0),
-        goToTarget,
-      },
-      frameDriver: { scheduleComposite },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent,
-      },
-      contentRenderer: vi.fn(() => true),
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-
-    nav.goToSpread(1);
-
-    expect(currentSpread).toBe(0);
-    expect(goToTarget).not.toHaveBeenCalled();
-    expect(scheduleComposite).toHaveBeenCalledTimes(1);
-
-    ensureContent.mockReturnValue(true);
-    nav.notifyContentReady(1);
-
-    expect(currentSpread).toBe(1);
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 1);
-    expect(notifyActiveSpread).toHaveBeenCalledWith(1);
-    expect(emit).toHaveBeenCalledWith('spreadChange', { spreadIndex: 1, spread });
-  });
-
-  it('does not start a deferred gesture cancelled by its active-spread notification', () => {
-    let currentSpread = 0;
-    let contentReady = false;
-    const gesture: { token?: GestureNavigationToken } = {};
-    const spread = {} as Spread;
-    const goToTarget = vi.fn();
-    const onTransitionStart = vi.fn();
-    const onNavigationCancelled = vi.fn();
-    const emit = vi.fn();
-    const scheduleComposite = vi.fn();
-    const notifications: number[] = [];
-    const slots: {
-      prev: number | null;
-      curr: number | null;
-      next: number | null;
-    } = { prev: null, curr: 0, next: null };
-    const reader = {
-      totalSpreads: 2,
-      spreads: [spread, spread],
-      notifyActiveSpread: vi.fn((spreadIndex: number) => {
-        notifications.push(spreadIndex);
-        if (spreadIndex === 1) gesture.token?.cancel();
-      }),
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: { emit },
-      td: { isAnimating: false, turning: false, handOver: vi.fn(), goToTarget },
-      frameDriver: { scheduleComposite },
-      pool: {
-        getSlotFor: vi.fn((spreadIndex: number) => {
-          if (slots.prev === spreadIndex) return 'prev';
-          if (slots.curr === spreadIndex) return 'curr';
-          if (slots.next === spreadIndex) return 'next';
-          return null;
-        }),
-        assignSlot: vi.fn((slot: 'prev' | 'curr' | 'next', spreadIndex: number) => {
-          slots[slot] = spreadIndex;
-        }),
-        ensureContent: vi.fn(() => contentReady),
-      },
-      contentRenderer: vi.fn(),
-      onNavigationCancelled,
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-    gesture.token = nav.startGestureNavigation(1, onTransitionStart);
-
-    contentReady = true;
-    nav.notifyContentReady(1);
-
-    expect(goToTarget).not.toHaveBeenCalled();
-    expect(onTransitionStart).not.toHaveBeenCalled();
-    expect(emit).not.toHaveBeenCalledWith('transitionStart', expect.anything());
-    expect(emit).not.toHaveBeenCalledWith('spreadChange', expect.anything());
-    expect(currentSpread).toBe(0);
-    expect(slots).toEqual({ prev: null, curr: 0, next: 1 });
-    expect(notifications).toEqual([1, 0]);
-    expect(onNavigationCancelled).toHaveBeenCalledOnce();
-    expect(scheduleComposite).toHaveBeenCalledTimes(2);
-  });
-
-  it('continues a deferred nextSpread once the target content becomes ready', () => {
-    let currentSpread = 0;
-    const spread = {} as Spread;
-    const goToTarget = vi.fn();
-    const ensureContent = vi.fn(() => false);
-    const reader = {
-      totalSpreads: 3,
-      spreads: [spread, spread, spread],
-      notifyActiveSpread: vi.fn(),
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      getRenderScale: () => 1,
-      emitter: { emit: vi.fn() },
-      td: {
-        isAnimating: false,
-        turning: false,
-        handOver: vi.fn(),
-        viewportWidth: 800,
-        forceSettle: vi.fn(() => 0),
-        goToTarget,
-      },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent,
-      },
-      contentRenderer: vi.fn(() => true),
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-
-    nav.nextSpread();
-
-    expect(currentSpread).toBe(0);
-    expect(goToTarget).not.toHaveBeenCalled();
-
-    ensureContent.mockReturnValue(true);
-    nav.notifyContentReady(1);
-
-    expect(currentSpread).toBe(1);
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 1);
-  });
-
-  it('a stale gesture token cannot cancel a newer programmatic request', () => {
-    let currentSpread = 0;
-    const spread = {} as Spread;
-    const goToTarget = vi.fn();
-    const ensureContent = vi.fn(() => false);
-    const gestureStarted = vi.fn();
-    const reader = {
-      totalSpreads: 3,
-      spreads: [spread, spread, spread],
-      notifyActiveSpread: vi.fn(),
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: { emit: vi.fn() },
-      td: {
-        isAnimating: false,
-        turning: false,
-        handOver: vi.fn(),
-        viewportWidth: 800,
-        forceSettle: vi.fn(() => 0),
-        goToTarget,
-      },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent,
-      },
-      contentRenderer: vi.fn(() => true),
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-
-    const gesture = nav.startGestureNavigation(1, gestureStarted);
-    nav.goToSpread(2);
-    gesture.cancel();
-    ensureContent.mockReturnValue(true);
-    nav.notifyContentReady(2);
-
-    expect(currentSpread).toBe(2);
-    expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2);
-    expect(gestureStarted).not.toHaveBeenCalled();
-  });
-
-  it('TOC and jump navigation replace a deferred gesture request', () => {
-    let currentSpread = 0;
-    let contentReady = false;
-    const spread = {} as Spread;
-    const entry = { label: 'Target', href: 'target.xhtml', children: [] };
-    const goToTarget = vi.fn();
-    const jump = vi.fn();
-    const firstGestureStarted = vi.fn();
-    const secondGestureStarted = vi.fn();
-    const reader = {
-      totalSpreads: 4,
-      spreads: [spread, spread, spread, spread],
-      resolveTocEntry: vi.fn(() => ({ pageIndex: 2, spreadIndex: 2 })),
-      notifyActiveSpread: vi.fn(),
-    } as unknown as Reader;
-    const deps = {
-      getReader: () => reader,
-      getCurrentSpread: () => currentSpread,
-      setCurrentSpread: (index: number) => {
-        currentSpread = index;
-      },
-      emitter: { emit: vi.fn() },
-      td: {
-        isAnimating: false,
-        turning: false,
-        handOver: vi.fn(),
-        viewportWidth: 800,
-        forceSettle: vi.fn(() => 0),
-        goToTarget,
-      },
-      frameDriver: { scheduleComposite: vi.fn() },
-      pool: {
-        getSlotFor: vi.fn(() => null),
-        assignSlot: vi.fn(),
-        ensureContent: vi.fn(() => contentReady),
-        jump,
-      },
-      contentRenderer: vi.fn(() => true),
-    } as unknown as NavigationDeps;
-    const nav = createNavigation(deps);
-
-    const tocGesture = nav.startGestureNavigation(1, firstGestureStarted);
-    nav.navigateToTocEntry(entry);
-    tocGesture.cancel();
-    contentReady = true;
-    nav.notifyContentReady(2);
-
-    expect(currentSpread).toBe(2);
-    expect(goToTarget).toHaveBeenLastCalledWith('forward', 0, 2);
-    expect(firstGestureStarted).not.toHaveBeenCalled();
-
-    contentReady = false;
-    goToTarget.mockClear();
-    const jumpGesture = nav.startGestureNavigation(3, secondGestureStarted);
-    nav.jumpToSpread(0);
-    jumpGesture.cancel();
-    contentReady = true;
-    nav.notifyContentReady(3);
-
-    expect(currentSpread).toBe(0);
-    expect(jump).toHaveBeenCalledWith(0);
-    expect(goToTarget).not.toHaveBeenCalled();
-    expect(secondGestureStarted).not.toHaveBeenCalled();
+    expect(jumping.current()).toBe(2);
+    expect(jumping.notified).toEqual([1, 2]);
+    expect(jumping.spreadEvents).toEqual([2]);
+    expect(jumping.commands).toEqual([['next', 1, 2]]);
+    expect(jumping.scheduleComposite).toHaveBeenCalledOnce();
   });
 });

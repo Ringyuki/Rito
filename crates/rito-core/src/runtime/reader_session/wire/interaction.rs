@@ -69,12 +69,13 @@ const ANNOTATION_LEVELS: [ReaderAnnotationLevel; 7] = [
     ReaderAnnotationLevel::OrphanedEmptyChapter,
 ];
 
-const LOCATOR_MATCHES: [ReaderLocatorMatch; 5] = [
+const LOCATOR_MATCHES: [ReaderLocatorMatch; 6] = [
     ReaderLocatorMatch::SourceRange,
     ReaderLocatorMatch::SourcePoint,
     ReaderLocatorMatch::Anchor,
     ReaderLocatorMatch::Progression,
     ReaderLocatorMatch::Href,
+    ReaderLocatorMatch::BookStart,
 ];
 const SCROLL_AXES: [ReaderScrollAxis; 2] = [ReaderScrollAxis::Down, ReaderScrollAxis::Left];
 const ORDERINGS: [std::cmp::Ordering; 3] = [

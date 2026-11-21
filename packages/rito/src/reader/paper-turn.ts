@@ -120,6 +120,38 @@ export interface PaperTurnRelease {
   readonly spine?: number;
 }
 
+/**
+ * The numbers a paper turn moves by. Lengths are CSS px, times seconds.
+ * A leaf let go on the move finishes on the leaf spring (`leafStiffness`,
+ * `leafDamping`); one let go slower than `unhurried` of its remaining
+ * lengths a second goes at its own pace, taking `wholeTurn` the whole way
+ * (`wholeSpan` or farther) and `shortestTurn` for the least nudge; one sent
+ * back the way it came stops in `stopsIn` first. A curled page turns when
+ * its finger has pulled `leastPull`, has come back no more than `cameBack`
+ * or `cameBackShare` of its farthest pull, and is not flung back faster than
+ * `flungBack` px a second. A leaf of a two-page spread turns when the share
+ * of it the finger carried, its speed (leaves a second) projected over
+ * `leafProjection` added, passes `leafThreshold`, or its speed passes
+ * `leafCommit`; pulled back faster than `leafPullBack`, it stays.
+ */
+export interface PaperTurnMotion {
+  readonly leafStiffness: number;
+  readonly leafDamping: number;
+  readonly wholeTurn: number;
+  readonly shortestTurn: number;
+  readonly wholeSpan: number;
+  readonly unhurried: number;
+  readonly stopsIn: number;
+  readonly leastPull: number;
+  readonly cameBack: number;
+  readonly cameBackShare: number;
+  readonly flungBack: number;
+  readonly leafProjection: number;
+  readonly leafThreshold: number;
+  readonly leafCommit: number;
+  readonly leafPullBack: number;
+}
+
 /** Where a settling turn is, how fast it moves, and whether it is done. */
 export interface PaperTurnAt {
   readonly x: number;
@@ -134,6 +166,13 @@ export interface PaperTurnAt {
  * then `lay` and `sheet` for each sheet. Make one per reader.
  */
 export interface PaperTurnModel {
+  /** The numbers its turns move by: the engine's defaults until `configure`. */
+  readonly motion: PaperTurnMotion;
+  /**
+   * The numbers its turns move by from now on: the defaults, with those
+   * `motion` gives in their place. A leaf already in the air keeps its own.
+   */
+  configure(motion: Partial<PaperTurnMotion>): void;
   begin(frame: PaperTurnFrame): PaperTurnBegun;
   /** Moves the leaves of the frame `begin` read on and lays them out; null when none waits. */
   lay(epoch: number): PaperTurnLaid | null;
@@ -153,7 +192,7 @@ export interface PaperTurnModel {
   aloft(now: number): boolean;
   /** How far a finger has carried a turn, CSS px, in a frame `width` wide bound at `spine`. */
   travel(touch: PaperTurnTouch, width: number, spine: number): number;
-  /** Whether a turn let go turns the page. */
+  /** Whether a turn let go turns the page, by its numbers. */
   lands(release: PaperTurnRelease): boolean;
   /** Where a turn that cuts into another begins, and how fast. */
   begins(

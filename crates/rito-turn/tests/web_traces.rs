@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use rito_turn::frame::{Frame, Incoming, PageRef, Phase, Scene, Touch};
 use rito_turn::hold::Point;
 use rito_turn::pack::{write_sheet, SHEET_NUMBERS};
-use rito_turn::physics::{lands, Release};
+use rito_turn::physics::{lands, PaperMotion, Release};
 use rito_turn::sheets::Face;
 use rito_turn::{Begun, LeafId, PaperModel};
 use serde_json::Value;
@@ -170,11 +170,11 @@ fn the_model_turns_as_the_web_does() {
                     spine: r["spine"].as_f64(),
                 };
                 assert_eq!(
-                    lands(&release),
+                    lands(&release, &PaperMotion::default()),
                     case["answer"].as_bool().expect("a bool"),
                     "{name}: {at}: lands"
                 );
-                digest.flag(lands(&release));
+                digest.flag(lands(&release, &PaperMotion::default()));
                 continue;
             }
             if let Some(from) = record.get("settleFrom") {

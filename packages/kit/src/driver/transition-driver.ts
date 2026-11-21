@@ -1,35 +1,34 @@
+import type { TurnAction, TurnDirection, TurnPages } from '@ritojs/core';
+
+import { drain } from './transition-drain';
 import {
-  cancelTrackingMode,
-  goToTargetMode,
-  interruptMode,
-  releaseTrackingMode,
-  startTrackingMode,
-  updateTrackingMode,
-} from './transition-actions';
-import { handOverMode } from './transition-hand-over';
-import { activeEffect, activePhysics, prepareEffect } from './transition-state';
-import type { TransitionDriverState } from './transition-state';
-import { emitSettled, forceSettle, stepTransition } from './transition-stepping';
-import type {
-  DrawInstruction,
-  SettledEvent,
-  TransitionDriverOptions,
-  TransitionMode,
-} from './types';
+  activeEffect,
+  activePhysics,
+  controllerOf,
+  createTransitionState,
+  prepareEffect,
+  type TransitionDriverState,
+} from './transition-state';
+import { instructionOf, modeOf } from './transition-steps';
+import type { DrawInstruction, TransitionDriverOptions, TransitionMode } from './types';
 import { DEFAULT_TRANSITION_OPTIONS } from './types';
-import type { TransitionEffect, TransitionTouch } from './effects';
+import type { TransitionEffect, TransitionPoint } from './effects';
 import type { TransitionPhysics } from './physics';
 
 /**
- * Pure JS transition state machine with spring physics.
- * Does NOT import any DOM types — entirely testable in Node.
+ * The page turns of a reader as the kit shows them: the engine decides when
+ * a turn begins, lands and ends and what a finger, a key or a jump does to
+ * one on screen (`@ritojs/core`'s `TurnController`, the same on every host);
+ * this driver tells it what happens, with what the host knows of the pages,
+ * answers its questions with the physics of the effect or the app, and hands
+ * its actions to the controller (`onAction`). No DOM types.
  */
 export interface TransitionDriver {
-  /** Current mode. */
+  /** What is on screen, as modes. */
   readonly mode: TransitionMode;
-  /** Whether anything is moving: a turn, or what is left of one that was cut into. */
+  /** Whether anything is moving: a turn, a pull, or what is left of one that was cut into. */
   readonly isAnimating: boolean;
-  /** Whether a turn is open: held, landing, going back, or pulling against the end of the book. */
+  /** Whether a turn is open: held, landing, or going back. */
   readonly turning: boolean;
   /** The viewport width used for displacement calculations. */
   viewportWidth: number;
@@ -45,52 +44,33 @@ export interface TransitionDriver {
   /** Whether the system asks for reduced motion. */
   reducedMotion: boolean;
 
-  /** Begin gesture tracking after direction lock. */
-  startTracking(
-    direction: 'forward' | 'backward',
-    outgoingSpread: number,
-    incomingSpread: number | null,
-    timestamp: number,
-  ): void;
-
-  /** Update tracking position during gesture; `touch` says where the finger is. */
-  updateTracking(rawDx: number, timestamp: number, touch?: TransitionTouch): void;
-
+  /** What the host knows of the pages beside the one shown, asked at every call. */
+  pagesFrom(pages: () => TurnPages): void;
   /**
-   * Release tracking (touchend). Returns whether the transition commits or cancels.
-   * Transitions to 'settling' or 'boundary-elastic'.
+   * A finger came down at `origin` at `timestamp` and has since moved far
+   * enough, the way pages turn, to mean a drag: its speed is measured from
+   * where and when it came down.
    */
-  releaseTracking(): 'commit' | 'cancel';
-
-  /** Cancel an owned drag/settle and settle back to its outgoing spread. */
-  cancelTracking(): boolean;
-
-  /** Programmatic navigation (keyboard, TOC): settling from rest, or from what a cut turn left. */
-  goToTarget(
-    direction: 'forward' | 'backward',
-    outgoingSpread: number,
-    incomingSpread: number | null,
-  ): void;
-
-  /** Interrupt a settling animation to resume tracking; the finger's travel adds to where it is. */
-  interrupt(timestamp: number): { dx: number; vx: number } | null;
-
-  /**
-   * Cut into the open turn for another to begin: its outcome is settled and
-   * reported at once, as `forceSettle` would, and its picture carries on
-   * until the next turn takes it up or it comes to rest.
-   */
-  handOver(): void;
+  fingerDown(origin: TransitionPoint, timestamp: number): void;
+  /** The finger is at `position`, having carried the turn `travel` px (the physics read it). */
+  fingerMove(position: TransitionPoint, travel: number, timestamp: number): void;
+  /** The finger lifted at `position`. */
+  fingerUp(position: TransitionPoint, travel: number, timestamp: number): void;
+  /** The finger was taken away. */
+  fingerCancel(): void;
+  /** Turns to the neighbour: false at the end of the book or while a finger holds the page. */
+  command(direction: TurnDirection): boolean;
+  /** The host landed the turn on screen (`ok`), or could not. */
+  landed(ok: boolean): void;
+  /** What the host knows of the pages changed: a page it was asked to bring is painted. */
+  pagesChanged(): void;
+  /** Something else moved the reader (a jump, a relayout): what is on screen ends interrupted. */
+  interrupt(): void;
+  /** Something asked of the reader directly: what is on screen ends at once where it was going. */
+  settleNow(): void;
 
   /** Advance one frame. Returns what to draw. `dt` is in milliseconds. */
   step(dt: number): DrawInstruction;
-
-  /**
-   * Instantly complete the current animation: snap dx to target, trigger
-   * onSettled, stop what a cut turn had left. For what cannot carry on (a
-   * jump, a relayout, a selection). Returns the dx it stopped at.
-   */
-  forceSettle(): number;
 
   /** Update spring/swipe parameters at runtime. */
   configure(update: Partial<TransitionDriverOptions>): void;
@@ -98,11 +78,8 @@ export interface TransitionDriver {
   /** Prepares the effect again, as when it is set: after the display's context was restored. */
   prepareEffect(): void;
 
-  /** Force back to idle without triggering onSettled. */
-  reset(): void;
-
-  /** Register callback for when settling completes. */
-  onSettled(cb: (event: SettledEvent) => void): () => void;
+  /** What the engine asks the host to do: say a turn began or ended, land it, fetch a page. */
+  onAction(cb: (action: TurnAction) => void): () => void;
 
   /** Register callback for when what a cut turn had left comes to rest, taken up by no turn. */
   onRest(cb: () => void): () => void;
@@ -113,25 +90,10 @@ export function createTransitionDriver(
   options?: Partial<TransitionDriverOptions>,
   gl: WebGL2RenderingContext | null = null,
 ): TransitionDriver {
-  const state: TransitionDriverState = {
-    opts: { ...DEFAULT_TRANSITION_OPTIONS, ...options },
-    mode: { kind: 'idle' },
-    viewportWidth: 0,
-    reducedMotion: false,
-    gl,
-    spine: 0,
-    velocitySamples: [],
-    settledListeners: new Set<(event: SettledEvent) => void>(),
-    restListeners: new Set<() => void>(),
-  };
+  const state = createTransitionState({ ...DEFAULT_TRANSITION_OPTIONS, ...options }, gl);
   prepareEffect(state);
   const driver = createDriverAccessors(state) as TransitionDriver;
-  Object.assign(
-    driver,
-    createTrackingActions(state),
-    createAnimationActions(state),
-    createConfigurationActions(state),
-  );
+  Object.assign(driver, createInputActions(state), createDriverActions(state));
   return driver;
 }
 
@@ -168,13 +130,13 @@ function createDriverAccessors(
       state.reducedMotion = value;
     },
     get mode() {
-      return state.mode;
+      return modeOf(state.controller?.state);
     },
     get isAnimating() {
-      return state.mode.kind !== 'idle';
+      return state.controller?.state.moving ?? false;
     },
     get turning() {
-      return state.mode.kind !== 'idle' && state.mode.kind !== 'finishing';
+      return (state.controller?.state.turning ?? null) !== null;
     },
     get viewportWidth() {
       return state.viewportWidth;
@@ -185,74 +147,113 @@ function createDriverAccessors(
   };
 }
 
-function createTrackingActions(
+/** Each call tells the engine with what the host knows of the pages now, then carries out what it asks. */
+function told(state: TransitionDriverState, tell: (pages: TurnPages) => void): void {
+  tell(state.pages());
+  drain(state);
+}
+
+function createInputActions(
   state: TransitionDriverState,
 ): Pick<
   TransitionDriver,
-  | 'startTracking'
-  | 'updateTracking'
-  | 'releaseTracking'
-  | 'cancelTracking'
-  | 'goToTarget'
-  | 'interrupt'
-  | 'handOver'
+  'pagesFrom' | 'command' | 'landed' | 'pagesChanged' | keyof ReturnType<typeof createFingerActions>
+> {
+  const turns = () => controllerOf(state);
+  return {
+    ...createFingerActions(state),
+    pagesFrom(pages): void {
+      state.pages = pages;
+    },
+    command(direction): boolean {
+      let taken = false;
+      told(state, (pages) => {
+        taken = turns().command(pages, direction);
+      });
+      return taken;
+    },
+    landed(ok): void {
+      told(state, (pages) => {
+        turns().landed(pages, ok);
+      });
+    },
+    pagesChanged(): void {
+      told(state, (pages) => {
+        turns().pages(pages);
+      });
+    },
+  };
+}
+
+/** What a finger does, told the engine; the physics read how far it carries a pull. */
+function createFingerActions(
+  state: TransitionDriverState,
+): Pick<TransitionDriver, 'fingerDown' | 'fingerMove' | 'fingerUp' | 'fingerCancel'> {
+  const turns = () => controllerOf(state);
+  return {
+    fingerDown(origin, timestamp): void {
+      told(state, (pages) => {
+        turns().fingerDown(pages, origin.x, origin.y, timestamp);
+      });
+    },
+    fingerMove(position, travel, timestamp): void {
+      const resisted = activePhysics(state)?.resist?.(travel, state.viewportWidth);
+      told(state, (pages) => {
+        turns().fingerMove(pages, position.x, position.y, travel, resisted, timestamp);
+      });
+    },
+    fingerUp(position, travel, timestamp): void {
+      told(state, (pages) => {
+        turns().fingerUp(pages, position.x, position.y, travel, timestamp);
+      });
+    },
+    fingerCancel(): void {
+      told(state, (pages) => {
+        turns().fingerCancel(pages);
+      });
+    },
+  };
+}
+
+function createDriverActions(
+  state: TransitionDriverState,
+): Pick<
+  TransitionDriver,
+  'interrupt' | 'settleNow' | 'step' | 'configure' | 'prepareEffect' | 'onAction' | 'onRest'
 > {
   return {
-    startTracking(direction, outgoingSpread, incomingSpread, timestamp): void {
-      startTrackingMode(state, direction, outgoingSpread, incomingSpread, timestamp);
+    interrupt(): void {
+      if (!state.controller) return;
+      state.controller.interrupt();
+      state.settle = null;
+      drain(state);
     },
-    updateTracking(rawDx, timestamp, touch): void {
-      updateTrackingMode(state, rawDx, timestamp, touch);
+    settleNow(): void {
+      if (!state.controller) return;
+      state.controller.settleNow();
+      state.settle = null;
+      drain(state);
     },
-    releaseTracking(): 'commit' | 'cancel' {
-      return releaseTrackingMode(state);
-    },
-    cancelTracking(): boolean {
-      return cancelTrackingMode(state);
-    },
-    goToTarget(direction, outgoingSpread, incomingSpread): void {
-      goToTargetMode(state, direction, outgoingSpread, incomingSpread);
-    },
-    interrupt(timestamp): { dx: number; vx: number } | null {
-      return interruptMode(state, timestamp);
-    },
-    handOver(): void {
-      const settled = handOverMode(state);
-      if (settled) emitSettled(state, settled);
-    },
-  };
-}
-
-function createAnimationActions(
-  state: TransitionDriverState,
-): Pick<TransitionDriver, 'step' | 'forceSettle'> {
-  return {
     step(dt): DrawInstruction {
-      return stepTransition(state, dt);
+      const controller = state.controller;
+      if (!controller) return instructionOf(undefined);
+      const seconds = dt / 1000;
+      const host = state.settle?.at(controller.state.motion.elapsed + seconds);
+      controllerOf(state).step(state.pages(), seconds, host);
+      drain(state);
+      return instructionOf(controller.state);
     },
-    forceSettle(): number {
-      return forceSettle(state);
-    },
-  };
-}
-
-function createConfigurationActions(
-  state: TransitionDriverState,
-): Pick<TransitionDriver, 'configure' | 'prepareEffect' | 'reset' | 'onSettled' | 'onRest'> {
-  return {
     configure(update): void {
       state.opts = { ...state.opts, ...update };
       if (update.effect !== undefined) prepareEffect(state);
+      if (state.controller) controllerOf(state);
     },
     prepareEffect(): void {
       prepareEffect(state);
     },
-    reset(): void {
-      state.mode = { kind: 'idle' };
-    },
-    onSettled(cb): () => void {
-      state.settledListeners.add(cb);
-      return () => state.settledListeners.delete(cb);
+    onAction(cb): () => void {
+      state.actionListeners.add(cb);
+      return () => state.actionListeners.delete(cb);
     },
     onRest(cb): () => void {
       state.restListeners.add(cb);

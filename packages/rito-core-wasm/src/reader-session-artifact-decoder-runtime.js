@@ -6,7 +6,14 @@ import {
 import { decodeRitoReaderPrimitiveList } from './reader-session-primitive-decoder-runtime.js';
 
 const MAX_SEMANTIC_DEPTH = 64;
-const LOCATOR_MATCHES = ['source-range', 'source-point', 'anchor', 'progression', 'href'];
+const LOCATOR_MATCHES = [
+  'source-range',
+  'source-point',
+  'anchor',
+  'progression',
+  'href',
+  'book-start',
+];
 const ADJACENT = ['available', 'chapter-boundary', 'terminal'];
 const RESOURCE_KINDS = ['image', 'font', 'stylesheet'];
 const RESOURCE_BYTE_LIMITS = [32 * 1024 * 1024, 16 * 1024 * 1024, 4 * 1024 * 1024];

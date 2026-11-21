@@ -97,17 +97,6 @@ describe('transition effects', () => {
     }
   });
 
-  it('an instant effect lands a turn on its first frame', () => {
-    const td = createTransitionDriver({ effect: 'none' });
-    td.viewportWidth = W;
-    const settled: number[] = [];
-    td.onSettled(({ targetSpread }) => settled.push(targetSpread));
-    td.goToTarget('forward', 2, 3);
-    td.step(16);
-    expect(td.isAnimating).toBe(false);
-    expect(settled).toEqual([3]);
-  });
-
   it('reduced motion turns any effect into a cross-fade unless the host opts out', () => {
     const td = createTransitionDriver({ effect: 'cover' });
     expect(td.effect).toBe(transitionEffects.cover);

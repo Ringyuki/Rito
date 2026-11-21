@@ -3,7 +3,8 @@ import { createPageBufferPool } from '../src/painter/buffer-pool';
 import { createDisplaySurface } from '../src/painter/display-surface';
 import { createFakeGl } from './helpers/fake-gl';
 import { createFrameDriver } from '../src/driver/frame-driver';
-import { createTransitionDriver } from '../src/driver/transition-driver';
+import { createTransitionDriver, type TransitionDriver } from '../src/driver/transition-driver';
+import type { PageBufferPool } from '../src/painter/buffer-pool';
 
 // Polyfill OffscreenCanvas
 beforeAll(() => {
@@ -73,6 +74,34 @@ function createGlSurface() {
   const displayed = (): unknown[] =>
     fake.draws.filter((draw) => draw.framebuffer === null).map((draw) => draw.texture);
   return { surface, clear, displayed };
+}
+
+/**
+ * Pages on either side of `current`, painted: each turn brings its page into
+ * its slot, lands on it and rotates the pool when it ends, as the kit does.
+ */
+function turnsOver(td: TransitionDriver, pool?: PageBufferPool, current = 0): void {
+  td.pagesFrom(() => ({
+    canTurn: { next: true, previous: true },
+    there: { next: true, previous: true },
+    drawable: { next: true, previous: true },
+    beyond: { next: true, previous: true },
+  }));
+  td.onAction((action) => {
+    if (action.kind === 'started' && pool) {
+      const slot = action.direction === 'next' ? 'next' : 'prev';
+      const spread = action.direction === 'next' ? current + 1 : current - 1;
+      if (pool.getSlotFor(spread) !== slot) pool.assignSlot(slot, spread);
+    }
+    if (action.kind === 'land') {
+      current += action.direction === 'next' ? 1 : -1;
+      td.landed(true);
+    }
+    if (action.kind === 'ended' && action.outcome === 'committed' && pool) {
+      if (action.direction === 'next') pool.rotateForward();
+      else pool.rotateBackward();
+    }
+  });
 }
 
 describe('FrameDriver', () => {
@@ -238,7 +267,8 @@ describe('FrameDriver', () => {
       getBackingRatio: () => 1,
     });
 
-    td.goToTarget('forward', 0, 1);
+    turnsOver(td);
+    td.command('next');
     driver.scheduleComposite();
     flushRaf(16);
 
@@ -258,9 +288,7 @@ describe('FrameDriver', () => {
     pool.assignSlot('next', 2);
     const td = createTransitionDriver();
     td.viewportWidth = 800;
-    td.onSettled((event) => {
-      if (event.committed) pool.rotateForward();
-    });
+    turnsOver(td, pool, 1);
 
     const driver = createFrameDriver({
       surface,
@@ -271,12 +299,11 @@ describe('FrameDriver', () => {
       getBackingRatio: () => 1,
     });
 
-    // A turn to spread 2 is cut into part of the way: it lands, and 2 is the current spread.
-    td.goToTarget('forward', 1, 2);
+    // A turn to spread 2 is cut into part of the way by a turn to 3: it
+    // ends there, and 2 is the current spread.
+    td.command('next');
     td.step(80);
-    td.handOver();
-    pool.assignSlot('next', 3);
-    td.goToTarget('forward', 2, 3);
+    td.command('next');
     driver.compositeNow();
 
     const drawn = view.displayed();
@@ -297,9 +324,7 @@ describe('FrameDriver', () => {
     pool.assignSlot('next', 3);
     const td = createTransitionDriver();
     td.viewportWidth = 800;
-    td.onSettled((event) => {
-      if (event.committed) pool.rotateBackward();
-    });
+    turnsOver(td, pool, 2);
 
     const driver = createFrameDriver({
       surface,
@@ -310,11 +335,9 @@ describe('FrameDriver', () => {
       getBackingRatio: () => 1,
     });
 
-    td.goToTarget('backward', 2, 1);
+    td.command('previous');
     td.step(80);
-    td.handOver();
-    pool.assignSlot('prev', 0);
-    td.goToTarget('backward', 1, 0);
+    td.command('previous');
     driver.compositeNow();
 
     const drawn = view.displayed();
@@ -431,7 +454,8 @@ describe('FrameDriver', () => {
       getBackingRatio: () => 1,
     });
 
-    td.goToTarget('forward', 0, 1);
+    turnsOver(td);
+    td.command('next');
     driver.scheduleComposite();
     expect(rafCallbacks.length).toBe(1);
 
@@ -500,12 +524,10 @@ describe('FrameDriver', () => {
       overlayProvider: () => [],
       getBackingRatio: () => 2,
     });
-    td.startTracking('forward', 0, 1, 0);
-    td.updateTracking(-50, 16, {
-      origin: { x: 300, y: 100 },
-      position: { x: 250, y: 90 },
-      farthest: { x: 240, y: 95 },
-    });
+    turnsOver(td);
+    td.fingerDown({ x: 300, y: 100 }, 0);
+    td.fingerMove({ x: 240, y: 95 }, -60, 8);
+    td.fingerMove({ x: 250, y: 90 }, -50, 16);
     driver.compositeNow();
 
     expect(seen[0]).toMatchObject({
@@ -559,7 +581,8 @@ describe('FrameDriver', () => {
     // The pages it may turn to are there; the one before is not assigned.
     expect(warmed).toEqual([[0, 1, undefined]]);
 
-    td.goToTarget('forward', 0, 1);
+    turnsOver(td);
+    td.command('next');
     driver.warmTransition();
     expect(warmed).toHaveLength(1);
     driver.dispose();

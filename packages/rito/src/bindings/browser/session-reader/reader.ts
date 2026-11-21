@@ -22,7 +22,9 @@ import { SessionReaderHostFonts } from './host-fonts';
 import { createSessionReaderInteractions } from './interactions';
 import { sessionReaderLayoutConfig, sessionReaderSessionLayout } from './layout-options';
 import { EMPTY_SESSION_READER_LAYOUT_VIEW } from './layout-view';
-import { sessionLocator, sessionReaderNavigationMethods } from './navigation';
+import { readerLocatorMatch, sessionLocator, sessionReaderNavigationMethods } from './navigation';
+import { registerEngineTurnController } from '../turn-controller';
+import { registerEngineTurnMotion } from '../turn-motion';
 import { createSessionReaderPublication } from './publication';
 import { createSessionReaderQueue, wakeSessionReaderQueue } from './queue';
 import { rejectSessionReaderFont } from './rejected-fonts';
@@ -79,6 +81,9 @@ export async function createReader(
   try {
     session = recordReaderSession(await opening, log);
     opened.end(session.initialArtifact);
+    // The engine the book opened on makes the motion of its page turns.
+    registerEngineTurnMotion();
+    registerEngineTurnController();
   } catch (error) {
     opened.fail(error);
     hostFonts.dispose();
@@ -238,6 +243,10 @@ function buildReader(state: SessionReaderState): Reader {
     spreads: { enumerable: true, get: () => state.view.spreads },
     dpr: { enumerable: true, get: () => state.dpr },
     layoutScope: { enumerable: true, get: () => state.view.scope },
+    initialLocatorMatch: {
+      enumerable: true,
+      value: readerLocatorMatch(state.session.initialArtifact.matchedBy),
+    },
   });
   return reader as unknown as Reader;
 }

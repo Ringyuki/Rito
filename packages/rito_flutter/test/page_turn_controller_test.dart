@@ -22,7 +22,7 @@ typedef _Rig = ({
 _Rig _rig(
   WidgetTester tester, {
   FakePageSource? source,
-  RitoPageTurnPhysics physics = const RitoPageTurnPhysics(),
+  RitoPageTurnPhysics? physics,
   RitoPagePainter? paintPage,
   bool prewarm = true,
 }) {
@@ -126,7 +126,7 @@ final class _RecordingPhysics extends RitoPageTurnPhysics {
   RitoPageTurnRelease? released;
 
   @override
-  bool lands(RitoPageTurnRelease release) {
+  bool? lands(RitoPageTurnRelease release) {
     released = release;
     return super.lands(release);
   }
@@ -312,7 +312,9 @@ void main() {
     _flick(rig.turns, const Offset(-300, 0), const Offset(-3000, 0));
     await _settle(tester);
 
-    expect(rig.events, ['start:next', 'end:next:cancelled']);
+    // A pull against the end of the book is no turn, as on the web.
+    expect(rig.events, isEmpty);
+    expect(rig.turns.frame.offset, 0);
     expect(rig.source.turns, isEmpty);
     expect(rig.turns.turn(_next), isFalse);
   });
@@ -687,12 +689,18 @@ void main() {
     gate.complete();
     rig.source.turnGate = null;
     await _settle(tester);
-    expect(rig.events, ['start:next', 'end:next:committed']);
+    // The finger takes the page the moment the reader has landed the turn:
+    // the picture where that turn had it, and the 50 px it has come since,
+    // as the web's does.
+    expect(rig.events, ['start:next', 'end:next:committed', 'start:next']);
+    expect(rig.turns.frame.phase, RitoPageTurnPhase.held);
+    final held = rig.turns.frame.offset;
+    expect(held, greaterThan(0));
 
-    // The page follows the finger, from where it came down, as the web's does.
+    // The page follows the finger from there.
     rig.turns.dragUpdate(const Offset(220, 0));
     expect(rig.turns.direction, _next);
-    expect(rig.turns.frame.offset, -80);
+    expect(rig.turns.frame.offset, closeTo(held - 30, 1e-9));
     rig.turns.dragCancel();
     await _settle(tester);
     expect(rig.events.sublist(2), ['start:next', 'end:next:cancelled']);
@@ -908,6 +916,25 @@ void main() {
     expect(rig.turns.frame.offset, -140);
     rig.turns.dragCancel();
     await _settle(tester);
+  });
+
+  testWidgets('physics the application gives outrank the effect\'s own', (
+    tester,
+  ) async {
+    final rig = _rig(tester, physics: const RitoPageTurnPhysics());
+    rig.turns.effect = _PhysicalEffect();
+    await tester.pump();
+    expect(rig.turns.effectivePhysics, isNot(isA<_VerticalPhysics>()));
+    // A sideways drag is travel to the application's physics: a turn begins.
+    rig.turns
+      ..dragStart(const Offset(200, 500))
+      ..dragUpdate(const Offset(60, 500));
+    expect(rig.turns.frame.offset, -140);
+    rig.turns.dragCancel();
+    await _settle(tester);
+    // Without them, the effect's again.
+    rig.turns.physics = null;
+    expect(rig.turns.effectivePhysics, isA<_VerticalPhysics>());
   });
 
   testWidgets(

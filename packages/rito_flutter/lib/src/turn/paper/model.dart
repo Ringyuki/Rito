@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../../native/bindings.dart';
 import '../effects.dart';
+import 'paper_motion.dart';
 
 /// A page a turn may show: the spread printed on it, and the host's number
 /// for the buffer it is painted in, the same while that buffer is repainted.
@@ -160,9 +161,17 @@ final class RitoPaperTurnSettle {
 /// steps, the host deciding between them whether it draws paper at all:
 /// [begin], then [lay] and [sheet] for each sheet. One per reader.
 final class RitoPaperTurnModel {
-  RitoPaperTurnModel() : _native = RitoNativePaperTurn();
+  RitoPaperTurnModel({RitoPaperTurnMotion? motion})
+    : _native = RitoNativePaperTurn() {
+    if (motion != null) configure(motion);
+  }
 
   final RitoNativePaperTurn _native;
+
+  /// The numbers its turns move by from now on: the defaults, with those
+  /// [motion] gives in their place. A leaf already in the air keeps its own.
+  void configure(RitoPaperTurnMotion motion) =>
+      _native.configure(motion.numbers());
 
   RitoPaperTurnBegun begin(RitoPaperTurnInput input) {
     _writeFrame(input, _native.frame);

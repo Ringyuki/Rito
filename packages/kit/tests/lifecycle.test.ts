@@ -60,7 +60,7 @@ describe('controller lifecycle', () => {
       frameDriver: { dispose: vi.fn() },
       pool: { dispose: vi.fn() },
       prerenderScheduler: { dispose: vi.fn() },
-      disposeSettledEvents: vi.fn(),
+      disposeTurns: vi.fn(),
     } as unknown as RuntimeComponents;
     const deps = {
       canvas,
@@ -115,7 +115,7 @@ describe('controller lifecycle', () => {
       frameDriver: { dispose: vi.fn() },
       pool: { dispose: vi.fn() },
       prerenderScheduler: { dispose: vi.fn() },
-      disposeSettledEvents: vi.fn(),
+      disposeTurns: vi.fn(),
     } as unknown as RuntimeComponents;
     const deps = {
       canvas,
@@ -165,7 +165,7 @@ describe('controller lifecycle', () => {
       frameDriver: { dispose: vi.fn() },
       pool: { dispose: vi.fn() },
       prerenderScheduler: { dispose: vi.fn() },
-      disposeSettledEvents: vi.fn(),
+      disposeTurns: vi.fn(),
     } as unknown as RuntimeComponents;
     const deps = {
       canvas,
@@ -208,12 +208,12 @@ describe('controller lifecycle', () => {
     const frameDispose = vi.fn();
     const poolDispose = vi.fn();
     const prerenderDispose = vi.fn();
-    const settledEventsDispose = vi.fn();
+    const turnsDispose = vi.fn();
     const runtime = {
       frameDriver: { dispose: frameDispose },
       pool: { dispose: poolDispose },
       prerenderScheduler: { dispose: prerenderDispose },
-      disposeSettledEvents: settledEventsDispose,
+      disposeTurns: turnsDispose,
     } as unknown as RuntimeComponents;
     const deps = {
       coordState: {
@@ -226,7 +226,7 @@ describe('controller lifecycle', () => {
     expect(() => {
       lifecycle.dispose();
     }).toThrow(failure);
-    expect(settledEventsDispose).toHaveBeenCalledOnce();
+    expect(turnsDispose).toHaveBeenCalledOnce();
     expect(prerenderDispose).toHaveBeenCalledOnce();
     expect(frameDispose).toHaveBeenCalledOnce();
     expect(poolDispose).toHaveBeenCalledOnce();

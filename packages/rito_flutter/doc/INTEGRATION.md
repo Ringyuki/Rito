@@ -149,15 +149,18 @@ Three layers, each usable on its own:
 
 1. `RitoReaderController` — the pages (above).
 2. `RitoPageTurnController(reader:, vsync:)` — the turn: feed it a drag
-   (`dragStart(position, at:)` where the finger came down, once it has
-   moved far enough / `dragUpdate(position, at:)` / `dragEnd(position:,
+   (`dragStart(position, at:)` where and when the finger came down, once
+   it has moved far enough / `dragUpdate(position, at:)` / `dragEnd(position:,
 at:)` / `dragCancel`, positions in the view's coordinates, `at` the
    pointer event's `timeStamp`; `RitoPageTurnDragRecognizer` takes a drag
    as the web reader does) or call `turn(direction)` for taps and keys. It
-   moves with the web reader's physics (`RitoPageTurnPhysics`, with the
-   springs `RitoSpring.standard`, `snappy` and `gentle`), or with the
-   physics its effect brings: a release hands the finger's speed, measured
-   as the web measures it, to the spring, a turn follows the same path at any refresh
+   moves with the physics it is given (`physics:`), else with those its
+   effect brings, else with the web reader's (`RitoPageTurnPhysics`, with
+   the springs `RitoSpring.standard`, `snappy` and `gentle`), as the web's
+   `physics` option outranks an effect's (`effectivePhysics` says which
+   move it now): a release hands the finger's speed, measured
+   as the web measures it (from when it came down, over its last 100 ms,
+   and nothing once it has held still 40 ms), to the spring, a turn follows the same path at any refresh
    rate (the spring is solved in closed form) and, with these three
    springs, never bounces past the neighbour — a custom spring damped
    below critical does; a pull against the first or last page stretches.
@@ -215,14 +218,23 @@ Page textures are drawn by `paintPage` (default
 `invalidatePages()` when they change. A page whose images land late is
 rasterized again.
 
-Physics: extend `RitoPageTurnPhysics` to move a turn another way.
-`travel(origin, position)` says how far a finger has carried the turn — a
-whole turn is one page width, and the way a drag first moves is the way
-its page turns; `resist(travel, width)` says where a pull against the
-first or last page leaves it; `lands(release)` decides whether letting go
-turns the page; and `settle(from:, velocity:, to:)` returns the
-`Simulation` that carries a released or tapped turn to rest. A turn left
-alone stays on screen until that simulation is done.
+Physics: a turn moves by the engine's motion (the web's too, to the bit),
+by the numbers `RitoPageTurnPhysics` gives its built-in rules. Extend it to
+move a turn another way: `travel(origin, position)` says how far a finger
+has carried the turn — a whole turn is one page width, and the way a drag
+first moves is the way its page turns; `resist(travel, width)` says where a
+pull against the first or last page leaves it; `lands(release)` decides
+whether letting go turns the page; `begins(leftover)` where a turn that cuts
+into another begins; and `settle(from:, velocity:, to:)` returns the
+`Simulation` that carries a released or tapped turn to rest. Each answers
+null to leave the decision to the engine's rule, as the base class does. A
+turn left alone stays on screen until its simulation is done.
+
+`RitoPaperTurnEffect(motion:)` sets the numbers the paper moves by
+(`RitoPaperTurnMotion`, each optional; `RitoPaperTurnMotion.defaults` are
+the engine's): the leaf spring, how long a leaf at its own pace takes, how
+far a finger must pull and how far it may come back or how fast fling back
+for a curled page to turn.
 
 ## Rendering (`RitoPageSurface`)
 
@@ -350,7 +362,16 @@ Omit the override for light mode — the authored page paints unmodified.
 - `RitoLocator`: where to open — a required spine `href` plus an
   optional `anchorId`, `sourcePoint`, `sourceRange`, or `progression`.
   The artifact reports which match kind was honored
-  (`RitoLocatorMatch`).
+  (`RitoLocatorMatch`). A stored locator is treated as persisted data:
+  a selector that no longer resolves falls back to the coarser ones,
+  down to the chapter's start, and the locator an `open` is given never
+  fails it. When its href names no chapter of the book (a position
+  saved against another edition, or written in a form the book does not
+  use), the book opens at its start and `session.firstArtifact.artifact
+.matchedBy` is `RitoLocatorMatch.bookStart`: check it to tell the
+  reader, or to find a host that writes hrefs wrongly. A later
+  `requestArtifact` whose href names no chapter fails instead, leaving
+  the reader on its page.
 - `RitoTextProfile.platformStringRuns` is the only profile the painter
   accepts in v1.
 

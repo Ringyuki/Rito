@@ -144,7 +144,7 @@ void main() {
       physics.travelAcross(const Offset(380, 300), const Offset(180, 300), _w),
       closeTo(-400 * (200 / 800), 1e-6),
     );
-    bool lands(double from, double to) => physics.lands(
+    bool? lands(double from, double to) => physics.lands(
       RitoPageTurnRelease(
         offset: (to - from) / 2,
         velocity: 0,
@@ -162,10 +162,36 @@ void main() {
     expect(lands(250, 228), isFalse);
   });
 
+  test('moves by the numbers it is given, the engine\'s where none are', () {
+    expect(RitoPaperTurnMotion.defaults.leastPull, 24);
+    expect(RitoPaperTurnMotion.defaults.leafStiffness, 260);
+    final fussy = RitoPaperTurnEffect(
+      motion: const RitoPaperTurnMotion(leastPull: 40),
+    );
+    addTearDown(fussy.dispose);
+    const release = RitoPageTurnRelease(
+      offset: -15,
+      velocity: 0,
+      width: _w,
+      forward: true,
+      touch: RitoPageTurnTouch(
+        origin: Offset(250, 300),
+        position: Offset(220, 300),
+      ),
+    );
+    // A 30 px pull turns a page by the defaults, not one that must be pulled 40.
+    final plain = RitoPaperTurnEffect();
+    addTearDown(plain.dispose);
+    expect(plain.physics.lands(release), isTrue);
+    expect(fussy.physics.lands(release), isFalse);
+    expect(const RitoPaperTurnMotion(stopsIn: 0.3).numbers()[6], 0.3);
+  });
+
   test('steps a page let go once for each moment it is asked about', () {
     final effect = RitoPaperTurnEffect();
     addTearDown(effect.dispose);
-    final settle = effect.physics.settle(from: 0, velocity: 0, to: -800);
+    // The paper's physics carry a page let go themselves.
+    final settle = effect.physics.settle(from: 0, velocity: 0, to: -800)!;
     // Asked its place, speed and whether it is done at one moment, it moves once.
     final x = settle.x(0.19);
     expect(settle.dx(0.19), isNonZero);

@@ -22,7 +22,8 @@ const pageRecordsFixture = () => fixture('reader-session-page-records.hex');
 test('decodes the artifact the Rust encoder writes, its pages by index and size', () => {
   const artifact = decodeRitoReaderArtifact(artifactFixture());
 
-  assert.equal(artifact.protocolVersion, 9);
+  assert.equal(artifact.protocolVersion, 10);
+  assert.equal(artifact.matchedBy, 'book-start');
   assert.equal(artifact.localSpreadIndex, 5);
   assert.deepEqual(artifact.localPageIndexes, [9, 10]);
   assert.equal(artifact.bookPageIndex, 140);
