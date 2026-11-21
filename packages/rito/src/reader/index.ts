@@ -21,6 +21,7 @@ export type {
   PaperTurnFrame,
   PaperTurnLaid,
   PaperTurnModel,
+  PaperTurnMotion,
   PaperTurnPage,
   PaperTurnPoint,
   PaperTurnRelease,

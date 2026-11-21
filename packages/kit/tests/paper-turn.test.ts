@@ -296,6 +296,25 @@ describe.skipIf(!engineBuilt)('a paper turn where there is no GPU', () => {
     effect.paint(fake, frame(30, null));
     expect(drawn).toEqual(['curr@30']);
   });
+
+  it('moves its paper by the numbers it is given', async () => {
+    const model = await paperTurnModel();
+    const effect = paperTurnWith(createPaperRenderer(), { motion: { leastPull: 40 } }, model);
+    expect(model.motion).toMatchObject({ leastPull: 40, leafStiffness: 260 });
+    // A 30 px pull no longer turns the page.
+    const pull = { origin: { x: 250, y: 300 }, position: { x: 220, y: 300 } };
+    expect(
+      effect.physics?.lands?.({
+        dx: -15,
+        from: 0,
+        velocity: 0,
+        width: 800,
+        direction: 'forward',
+        touch: pull,
+        spine: 0,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe.skipIf(!engineBuilt)('a paper turn before the engine is loaded', () => {

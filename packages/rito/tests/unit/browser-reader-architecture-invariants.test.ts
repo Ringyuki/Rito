@@ -91,7 +91,9 @@ const SESSION_READER_LINE_BUDGET = 2950;
 // book opened at its start because its saved position named no chapter.
 // +145 lines (2026-11-21): `loadTurnMotion` and `loadedTurnMotion`, the
 // motion of any page turn, the engine's, which the kit's turns move by.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1204;
+// +40 lines (2026-11-21): `PaperTurnMotion` and the paper model's
+// `configure`, the numbers a paper turn moves by.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1244;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

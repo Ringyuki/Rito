@@ -1,6 +1,7 @@
 import type {
   PaperTurnFace,
   PaperTurnFrame,
+  PaperTurnMotion,
   PaperTurnPage,
   PaperTurnPoint,
   PaperTurnRelease,
@@ -13,6 +14,40 @@ export const FRAME_NUMBERS = 23;
 export const SHEET_NUMBERS = 11;
 export const RELEASE_NUMBERS = 15;
 export const SETTLE_NUMBERS = 12;
+export const MOTION_NUMBERS = 15;
+
+/** The motion's names in the order `rito_turn::pack::write_paper_motion` lays them out. */
+const MOTION_KEYS = [
+  'leafStiffness',
+  'leafDamping',
+  'wholeTurn',
+  'shortestTurn',
+  'wholeSpan',
+  'unhurried',
+  'stopsIn',
+  'leastPull',
+  'cameBack',
+  'cameBackShare',
+  'flungBack',
+  'leafProjection',
+  'leafThreshold',
+  'leafCommit',
+  'leafPullBack',
+] as const satisfies readonly (keyof PaperTurnMotion)[];
+
+export function motionOf(numbers: Float64Array): PaperTurnMotion {
+  const motion: Record<string, number> = {};
+  MOTION_KEYS.forEach((key, index) => {
+    motion[key] = numbers[index] ?? 0;
+  });
+  return motion as unknown as PaperTurnMotion;
+}
+
+export function writeMotion(motion: PaperTurnMotion, out: Float64Array): void {
+  MOTION_KEYS.forEach((key, index) => {
+    out[index] = motion[key];
+  });
+}
 
 /** The number at `index`: every layout is read at indices its length holds. */
 export function numberAt(numbers: Float64Array, index: number): number {

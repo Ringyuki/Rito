@@ -27,13 +27,18 @@ export interface RitoRawPaperTurn {
   begins(dx: number, velocity: number, sameSpreads: boolean, out: Float64Array): void;
   settle(from: number, velocity: number, to: number, out: Float64Array): void;
   settleStep(state: Float64Array, seconds: number, now: number, out: Float64Array): void;
+  /** The numbers the model's turns move by from now on (`rito_turn::pack::read_paper_motion`). */
+  configure(motion: Float64Array): void;
+  /** Whether a turn let go turns the page, by the model's numbers. */
+  lands(release: Float64Array): boolean;
   free(): void;
 }
 
 export type RitoPaperTurnClass = (new () => RitoRawPaperTurn) & {
   travel(touch: Float64Array, width: number, spine: number): number;
-  lands(release: Float64Array): boolean;
   eyeHeight(width: number, height: number): number;
-  /** How many numbers each layout is: frame, sheet, release, settle. */
+  /** Writes the numbers paper turns with by default. */
+  defaultMotion(out: Float64Array): void;
+  /** How many numbers each layout is: frame, sheet, release, settle, motion. */
   layouts(): Uint32Array;
 };

@@ -1,9 +1,16 @@
 import { RitoPaperTurn, type RitoPaperTurnClass, type RitoRawPaperTurn } from '@ritojs/core-wasm';
 
-import type { PaperTurnAt, PaperTurnForgotten, PaperTurnModel } from '../../../reader/paper-turn';
+import type {
+  PaperTurnAt,
+  PaperTurnForgotten,
+  PaperTurnModel,
+  PaperTurnMotion,
+} from '../../../reader/paper-turn';
 import { engineModuleReady } from '../engine-module';
 import {
   FRAME_NUMBERS,
+  MOTION_NUMBERS,
+  motionOf,
   numberAt,
   pageAt,
   RELEASE_NUMBERS,
@@ -11,6 +18,7 @@ import {
   SHEET_NUMBERS,
   sheetOf,
   writeFrame,
+  writeMotion,
   writeRelease,
 } from './numbers';
 
@@ -19,7 +27,7 @@ export async function loadPaperTurnModel(): Promise<PaperTurnModel> {
   await engineModuleReady();
   const turn: RitoPaperTurnClass = RitoPaperTurn;
   const layouts = [...turn.layouts()];
-  const ours = [FRAME_NUMBERS, SHEET_NUMBERS, RELEASE_NUMBERS, SETTLE_NUMBERS];
+  const ours = [FRAME_NUMBERS, SHEET_NUMBERS, RELEASE_NUMBERS, SETTLE_NUMBERS, MOTION_NUMBERS];
   if (layouts.join() !== ours.join()) {
     throw new Error(
       `The engine's paper turn numbers are laid out ${layouts.join()}, not ${ours.join()}`,
@@ -93,7 +101,7 @@ function framesOf(raw: RitoRawPaperTurn): Frames {
 function physicsOf(
   turn: RitoPaperTurnClass,
   raw: RitoRawPaperTurn,
-): Omit<PaperTurnModel, keyof Frames> {
+): Omit<PaperTurnModel, keyof Frames | 'motion' | 'configure'> {
   const release = new Float64Array(RELEASE_NUMBERS);
   const touch = new Float64Array(4);
   const begins = new Float64Array(2);
@@ -114,7 +122,7 @@ function physicsOf(
     },
     lands(input) {
       writeRelease(input, release);
-      return turn.lands(release);
+      return raw.lands(release);
     },
     begins(dx, velocity, sameSpreads) {
       raw.begins(dx, velocity, sameSpreads, begins);
@@ -128,5 +136,28 @@ function physicsOf(
 export function paperTurnModelOf(turn: RitoPaperTurnClass): PaperTurnModel {
   const raw = new turn();
   // Onto the physics, whose getters ask the engine each time, not copied.
-  return Object.assign(physicsOf(turn, raw), framesOf(raw));
+  return withMotion(Object.assign(physicsOf(turn, raw), framesOf(raw)), turn, raw);
+}
+
+/**
+ * `model` with the numbers its turns move by: the engine's defaults, and
+ * those set in their place. The getter stays one, read anew each time.
+ */
+function withMotion(
+  model: Omit<PaperTurnModel, 'motion' | 'configure'>,
+  turn: RitoPaperTurnClass,
+  raw: RitoRawPaperTurn,
+): PaperTurnModel {
+  const numbers = new Float64Array(MOTION_NUMBERS);
+  turn.defaultMotion(numbers);
+  const defaults = motionOf(numbers);
+  let motion = defaults;
+  Object.defineProperty(model, 'motion', { enumerable: true, get: () => motion });
+  return Object.assign(model, {
+    configure(given: Partial<PaperTurnMotion>) {
+      motion = { ...defaults, ...given };
+      writeMotion(motion, numbers);
+      raw.configure(numbers);
+    },
+  }) as PaperTurnModel;
 }
