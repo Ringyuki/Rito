@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     testTimeout: 15_000,
     include: ['tests/**/*.test.ts'],
+    setupFiles: ['tests/setup/engine.ts'],
     coverage: {
       include: ['src/**/*.ts'],
       reporter: ['text', 'json-summary', 'html'],

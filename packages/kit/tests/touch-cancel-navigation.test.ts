@@ -388,7 +388,8 @@ describe('cutting into a turn in flight', () => {
     scenario.dom.emit('touchstart', touchEvent([down], [down], 1000));
     scenario.dom.emit('touchend', touchEvent([], [down], 1050));
 
-    expect(scenario.td.mode).toBe(mode);
+    // The same turn, where it was: the mode is read off the engine's motion each time.
+    expect(scenario.td.mode).toStrictEqual(mode);
     expect(ends(scenario)).toEqual([]);
     settle(scenario.td);
     expect(scenario.internals.currentSpread).toBe(1);

@@ -1,16 +1,8 @@
-import { stepSpring, type SpringState } from './spring';
-import type {
-  DrawInstruction,
-  SettledEvent,
-  TransitionDriverOptions,
-  TransitionMode,
-} from './types';
+import type { TurnMotionState } from '@ritojs/core';
 
-export type TurningMode = TransitionMode & {
-  kind: 'tracking' | 'settling' | 'boundary-elastic';
-};
-type RestingMode = TransitionMode & { kind: 'settling' | 'boundary-elastic' };
-type FinishingMode = TransitionMode & { kind: 'finishing' };
+import type { TransitionDriverState, TurnIdentity } from './transition-state';
+import type { DrawInstruction, TransitionMode } from './types';
+
 type TurningInstruction = DrawInstruction & { kind: 'turning' };
 
 /**
@@ -19,176 +11,60 @@ type TurningInstruction = DrawInstruction & { kind: 'turning' };
  * own start, still that picture: the frame names the neighbour that turn
  * left in it, on its way out.
  */
-export function turningInstruction(mode: TurningMode): TurningInstruction {
-  const far = mode.direction === 'forward' ? mode.dx > 0 : mode.dx < 0;
-  const before = far ? mode.leaving : null;
-  const incoming = before === null ? ownIncoming(mode) : before === 'none' ? null : before;
+export function instructionOf(now: TurnMotionState, turn: TurnIdentity | null): TurningInstruction {
+  const finishing = now.phase === 'finishing';
+  const phase =
+    now.phase === 'dragging' ? 'held' : !finishing && now.landing ? 'landing' : 'returning';
   return {
     kind: 'turning',
     outgoing: 'curr',
-    incoming,
-    dx: mode.dx,
-    phase: mode.kind === 'tracking' ? 'held' : before === null ? ownPhase(mode) : 'returning',
-    velocity: mode.kind === 'tracking' ? 0 : mode.vx,
-    touch: mode.touch,
+    incoming: now.showing,
+    dx: now.offset,
+    phase,
+    velocity: now.velocity,
+    touch: finishing ? null : (turn?.touch ?? null),
   };
 }
 
-/** The neighbour a turn brings in itself; none for a pull against the end of the book. */
-function ownIncoming(mode: TurningMode): 'next' | 'prev' | null {
-  if (mode.kind === 'boundary-elastic' || mode.incomingSpread === null) return null;
-  return mode.direction === 'forward' ? 'next' : 'prev';
-}
-
-function ownPhase(mode: RestingMode): 'landing' | 'returning' {
-  return mode.kind === 'settling' && mode.target !== 0 ? 'landing' : 'returning';
-}
-
-/** The frame of what a turn that was cut into has left to travel. */
-export function finishingInstruction(mode: FinishingMode): TurningInstruction {
-  return {
-    kind: 'turning',
-    outgoing: 'curr',
-    incoming: mode.leaving === 'none' ? null : mode.leaving,
-    dx: mode.dx,
-    phase: 'returning',
-    velocity: mode.vx,
-    touch: null,
-  };
-}
-
-/** Step a settling turn and return the new mode + draw instruction. */
-export function stepSettling(
-  mode: TransitionMode & { kind: 'settling' },
-  opts: TransitionDriverOptions,
-  dt: number,
-  instant = false,
-): { nextMode: TransitionMode; instruction: DrawInstruction; settled?: SettledEvent } {
-  // An instant effect lands on its first frame.
-  const done = instant || advance(mode, mode.target, 0, opts, dt);
-  if (done) {
-    mode.dx = mode.target;
-    mode.vx = 0;
-    const committed = mode.target !== 0;
-    return {
-      nextMode: { kind: 'idle' },
-      instruction: { kind: 'single', slot: 'curr' },
-      settled: {
-        direction: mode.direction,
-        committed,
-        targetSpread: committed
-          ? (mode.incomingSpread ?? mode.outgoingSpread)
-          : mode.outgoingSpread,
-      },
-    };
-  }
-  return { nextMode: mode, instruction: turningInstruction(mode) };
-}
-
-/** Step a pull against the end of the book on its way back. */
-export function stepBoundaryElastic(
-  mode: TransitionMode & { kind: 'boundary-elastic' },
-  opts: TransitionDriverOptions,
-  dt: number,
-): { nextMode: TransitionMode; instruction: DrawInstruction; settled?: SettledEvent } {
-  if (advance(mode, 0, 0, opts, dt)) {
-    return {
-      nextMode: { kind: 'idle' },
-      instruction: { kind: 'single', slot: 'curr' },
-      settled: { direction: mode.direction, committed: false, targetSpread: mode.slotSpread },
-    };
-  }
-  return { nextMode: mode, instruction: turningInstruction(mode) };
-}
-
-/**
- * Step what is left of a turn that was cut into. It was reported settled
- * when it was cut into, so coming to rest reports nothing.
- */
-export function stepFinishing(
-  mode: FinishingMode,
-  opts: TransitionDriverOptions,
-  dt: number,
-): { nextMode: TransitionMode; instruction: DrawInstruction } {
-  if (advance(mode, 0, mode.shift, opts, dt)) {
-    return { nextMode: { kind: 'idle' }, instruction: { kind: 'single', slot: 'curr' } };
-  }
-  return { nextMode: mode, instruction: finishingInstruction(mode) };
-}
-
-/**
- * Moves a turn nothing holds on by `dt` ms toward `target`: by the motion
- * its physics brought, read off at the time elapsed and moved by `shift`,
- * else by the spring. True when it has come to rest.
- */
-function advance(
-  mode: RestingMode | FinishingMode,
-  target: number,
-  shift: number,
-  opts: TransitionDriverOptions,
-  dt: number,
-): boolean {
-  if (mode.settle) {
-    mode.elapsed += dt / 1000;
-    const at = mode.settle(mode.elapsed);
-    mode.dx = at.done ? target : at.x + shift;
-    mode.vx = at.done ? 0 : at.velocity;
-    return at.done;
-  }
-  const spring: SpringState = { x: mode.dx, vx: mode.vx };
-  const done = stepSpring(spring, target, opts, dt);
-  mode.dx = spring.x;
-  mode.vx = spring.vx;
-  return done;
-}
-
-/** Force-settle any mode and return the settled event (if applicable). */
-export function forceSettleMode(mode: TransitionMode): {
-  residualDx: number;
-  settled: SettledEvent | null;
-} {
-  switch (mode.kind) {
-    case 'idle':
-      return { residualDx: 0, settled: null };
-
-    // Its turn was reported when it was cut into.
+/** The turn as the driver's modes tell it: what its tests and its host read. */
+export function modeOf(state: TransitionDriverState): TransitionMode {
+  const now = state.motion?.state;
+  const turn = state.turn;
+  if (!now || now.phase === 'idle' || !turn) return { kind: 'idle' };
+  const { direction, outgoingSpread, incomingSpread, touch } = turn;
+  const leaving = now.leaving;
+  switch (now.phase) {
+    case 'dragging':
+      return {
+        kind: 'tracking',
+        direction,
+        outgoingSpread,
+        incomingSpread: now.hasIncoming ? incomingSpread : null,
+        dx: now.offset,
+        vx: now.fingerVelocity / 1000,
+        lastSampleAt: turn.lastSampleAt,
+        touch,
+        from: now.from,
+        leaving,
+      };
+    case 'settling':
+      return settlingModeOf(now, turn);
     case 'finishing':
-      return { residualDx: mode.dx, settled: null };
-
-    case 'settling': {
-      const committed = mode.target !== 0;
       return {
-        residualDx: mode.dx,
-        settled: {
-          direction: mode.direction,
-          committed,
-          targetSpread: committed
-            ? (mode.incomingSpread ?? mode.outgoingSpread)
-            : mode.outgoingSpread,
-        },
-      };
-    }
-
-    case 'tracking': {
-      const committed = mode.incomingSpread !== null;
-      return {
-        residualDx: mode.dx,
-        settled: {
-          direction: mode.direction,
-          committed,
-          targetSpread: committed ? mode.incomingSpread : mode.outgoingSpread,
-        },
-      };
-    }
-
-    case 'boundary-elastic':
-      return {
-        residualDx: mode.dx,
-        settled: {
-          direction: mode.direction,
-          committed: false,
-          targetSpread: mode.slotSpread,
-        },
+        kind: 'finishing',
+        leaving: leaving ?? 'none',
+        dx: now.offset,
+        vx: now.velocity,
+        shift: now.shift,
       };
   }
+}
+
+/** A turn going by itself: to its neighbour or back, or back from a pull against the end of the book. */
+function settlingModeOf(now: TurnMotionState, turn: TurnIdentity): TransitionMode {
+  const { direction, outgoingSpread, incomingSpread, touch } = turn;
+  const moving = { direction, dx: now.offset, vx: now.velocity, touch, leaving: now.leaving };
+  return now.hasIncoming
+    ? { kind: 'settling', ...moving, outgoingSpread, incomingSpread, target: now.target }
+    : { kind: 'boundary-elastic', ...moving, slotSpread: outgoingSpread };
 }

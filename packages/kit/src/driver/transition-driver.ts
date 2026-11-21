@@ -6,10 +6,10 @@ import {
   startTrackingMode,
   updateTrackingMode,
 } from './transition-actions';
-import { handOverMode } from './transition-hand-over';
 import { activeEffect, activePhysics, prepareEffect } from './transition-state';
 import type { TransitionDriverState } from './transition-state';
-import { emitSettled, forceSettle, stepTransition } from './transition-stepping';
+import { forceSettle, handOver, stepTransition } from './transition-stepping';
+import { modeOf } from './transition-steps';
 import type {
   DrawInstruction,
   SettledEvent,
@@ -21,8 +21,10 @@ import type { TransitionEffect, TransitionTouch } from './effects';
 import type { TransitionPhysics } from './physics';
 
 /**
- * Pure JS transition state machine with spring physics.
- * Does NOT import any DOM types — entirely testable in Node.
+ * The page turn's state machine: the engine's motion of a turn
+ * (`@ritojs/core`'s `TurnMotion`, the same on every host), with the spreads
+ * it is between, the effect it looks like and the physics of the host's own
+ * that answer where the engine's rules would. No DOM types.
  */
 export interface TransitionDriver {
   /** Current mode. */
@@ -115,12 +117,13 @@ export function createTransitionDriver(
 ): TransitionDriver {
   const state: TransitionDriverState = {
     opts: { ...DEFAULT_TRANSITION_OPTIONS, ...options },
-    mode: { kind: 'idle' },
     viewportWidth: 0,
     reducedMotion: false,
     gl,
     spine: 0,
-    velocitySamples: [],
+    motion: null,
+    turn: null,
+    settle: null,
     settledListeners: new Set<(event: SettledEvent) => void>(),
     restListeners: new Set<() => void>(),
   };
@@ -168,13 +171,13 @@ function createDriverAccessors(
       state.reducedMotion = value;
     },
     get mode() {
-      return state.mode;
+      return modeOf(state);
     },
     get isAnimating() {
-      return state.mode.kind !== 'idle';
+      return (state.motion?.state.phase ?? 'idle') !== 'idle';
     },
     get turning() {
-      return state.mode.kind !== 'idle' && state.mode.kind !== 'finishing';
+      return state.motion?.state.phase === 'dragging' || state.motion?.state.phase === 'settling';
     },
     get viewportWidth() {
       return state.viewportWidth;
@@ -217,8 +220,7 @@ function createTrackingActions(
       return interruptMode(state, timestamp);
     },
     handOver(): void {
-      const settled = handOverMode(state);
-      if (settled) emitSettled(state, settled);
+      handOver(state);
     },
   };
 }
@@ -248,7 +250,8 @@ function createConfigurationActions(
       prepareEffect(state);
     },
     reset(): void {
-      state.mode = { kind: 'idle' };
+      state.motion?.reset();
+      state.settle = null;
     },
     onSettled(cb): () => void {
       state.settledListeners.add(cb);
