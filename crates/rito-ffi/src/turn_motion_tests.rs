@@ -152,7 +152,7 @@ fn a_motion_the_host_carries_is_read_from_the_host() {
     ok(rito_turn_motion_turn(motion, 0, ptr::null(), &mut error));
     let state = state_through_abi(motion);
     // The motion to carry on: generation, from, velocity, to.
-    assert_eq!(&state[17..21], &[1.0, 0.0, 0.0, 400.0]);
+    assert_eq!(&state[14..18], &[1.0, 0.0, 0.0, 400.0]);
     let at = [100.0, 400.0, 0.0];
     let mut step = 0;
     ok(rito_turn_motion_step(

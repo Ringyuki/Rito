@@ -696,16 +696,17 @@ uint32_t rito_paper_turn_eye_height(double width, double height,
  * State (RITO_TURN_MOTION_STATE_NUMBERS): phase (0 idle, 1 dragging,
  * 2 settling, 3 finishing), forward, has incoming (1/0), offset, velocity,
  * target, from, finger velocity, elapsed; the neighbour showing (0 none,
- * 1 next, 2 previous), on the far side, committing, landing (1/0); what a
- * turn beginning now would find (present, offset, velocity, leaving 0 none
- * / 1 next / 2 previous); the motion the host is to carry on (generation,
- * from, velocity, to).
+ * 1 next, 2 previous), on the far side, committing, landing (1/0); what
+ * the turn it began from left in the frame (0 nothing, it began at rest;
+ * 1 next, 2 previous, 3 no neighbour), which a turn beginning while it
+ * finishes begins from; the motion the host is to carry on (generation,
+ * from, velocity, to) and what is added to it.
  * A place (RITO_TURN_MOTION_AT_NUMBERS): x, velocity, done (1/0).
  * A step writes 0 still, 1 moving, 2 settled on the neighbour, 3 settled
  * back where it began, 4 what was left of a turn that was cut into at rest.
  */
 #define RITO_TURN_MOTION_PHYSICS_NUMBERS UINT32_C(7)
-#define RITO_TURN_MOTION_STATE_NUMBERS UINT32_C(21)
+#define RITO_TURN_MOTION_STATE_NUMBERS UINT32_C(19)
 #define RITO_TURN_MOTION_AT_NUMBERS UINT32_C(3)
 
 uint32_t rito_turn_motion_layouts(uint32_t *layouts_out,

@@ -297,6 +297,18 @@ impl TurnMotion {
         self.committing() && !self.on_far_side()
     }
 
+    /// What the turn this one began from left in the frame; none when it
+    /// began at rest.
+    pub fn leaving(&self) -> Option<Leaving> {
+        self.leaving
+    }
+
+    /// What is added to the motion carrying what is left of a turn that
+    /// was cut into: the coordinates moved when that turn landed.
+    pub fn shift(&self) -> f64 {
+        self.shift
+    }
+
     /// What a turn beginning now would find of the one it cuts into; none
     /// at rest.
     pub fn leftover(&self) -> Option<Leftover> {

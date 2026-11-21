@@ -12,7 +12,7 @@ use crate::turn_physics::TurnPhysics;
 pub const TURN_PHYSICS_NUMBERS: usize = 7;
 
 /// How many numbers a motion's state is (see [`write_turn_state`]).
-pub const TURN_STATE_NUMBERS: usize = 21;
+pub const TURN_STATE_NUMBERS: usize = 19;
 
 /// How many numbers a place in a motion is: x, velocity, done (1/0).
 pub const TURN_AT_NUMBERS: usize = 3;
@@ -76,21 +76,22 @@ fn neighbour(value: Option<Neighbour>) -> f64 {
     }
 }
 
-fn leaving(value: Leaving) -> f64 {
+fn leaving(value: Option<Leaving>) -> f64 {
     match value {
-        Leaving::None => 0.0,
-        Leaving::Next => 1.0,
-        Leaving::Previous => 2.0,
+        None => 0.0,
+        Some(Leaving::Next) => 1.0,
+        Some(Leaving::Previous) => 2.0,
+        Some(Leaving::None) => 3.0,
     }
 }
 
 /// Writes `motion`'s state: phase (0 idle, 1 dragging, 2 settling,
 /// 3 finishing), forward, has incoming (1/0), offset, velocity, target,
 /// from, finger velocity, elapsed; the neighbour showing (0 none, 1 next,
-/// 2 previous), on the far side, committing, landing (1/0); what a turn
-/// beginning now would find (present, offset, velocity, leaving 0 none /
-/// 1 next / 2 previous); the motion the host is to carry on (generation,
-/// from, velocity, to).
+/// 2 previous), on the far side, committing, landing (1/0); what the turn
+/// it began from left in the frame (0 nothing, it began at rest; 1 next,
+/// 2 previous, 3 no neighbour); the motion the host is to carry on
+/// (generation, from, velocity, to) and what is added to it.
 pub fn write_turn_state(motion: &TurnMotion, out: &mut [f64]) {
     let phase = match motion.phase() {
         TurnPhase::Idle => 0.0,
@@ -98,7 +99,6 @@ pub fn write_turn_state(motion: &TurnMotion, out: &mut [f64]) {
         TurnPhase::Settling => 2.0,
         TurnPhase::Finishing => 3.0,
     };
-    let left = motion.leftover();
     let request = motion.settle_request();
     out[..TURN_STATE_NUMBERS].copy_from_slice(&[
         phase,
@@ -114,14 +114,12 @@ pub fn write_turn_state(motion: &TurnMotion, out: &mut [f64]) {
         flag(motion.on_far_side()),
         flag(motion.committing()),
         flag(motion.landing()),
-        flag(left.is_some()),
-        left.map_or(0.0, |left| left.offset),
-        left.map_or(0.0, |left| left.velocity),
-        left.map_or(0.0, |left| leaving(left.leaving)),
+        leaving(motion.leaving()),
         request.generation as f64,
         request.from,
         request.velocity,
         request.to,
+        motion.shift(),
     ]);
 }
 
