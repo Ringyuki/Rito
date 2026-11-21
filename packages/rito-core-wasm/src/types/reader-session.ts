@@ -38,6 +38,20 @@ export interface RitoReaderLocator {
   readonly progression?: number | undefined;
 }
 
+/**
+ * The most precise of a locator's selectors that resolved. `'book-start'`:
+ * none did, because its href names no chapter of the book, and the artifact
+ * a session opened on is the book's start (only that artifact; a later
+ * request with such an href fails).
+ */
+export type RitoReaderLocatorMatch =
+  | 'source-range'
+  | 'source-point'
+  | 'anchor'
+  | 'progression'
+  | 'href'
+  | 'book-start';
+
 export interface RitoReaderPublicationMetadata {
   readonly title: string;
   readonly language: string;
@@ -297,7 +311,7 @@ export interface RitoReaderArtifact {
   readonly revisionVersion: number;
   readonly artifactId: bigint;
   readonly locator: RitoReaderLocator;
-  readonly matchedBy: 'source-range' | 'source-point' | 'anchor' | 'progression' | 'href';
+  readonly matchedBy: RitoReaderLocatorMatch;
   readonly localPageIndex: number;
   readonly localSpreadIndex: number;
   readonly localPageIndexes: readonly number[];

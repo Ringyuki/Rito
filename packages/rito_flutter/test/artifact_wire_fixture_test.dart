@@ -23,6 +23,7 @@ void main() {
   test('decodes the artifact the Rust encoder writes, its pages by size', () {
     final artifact = RitoArtifactDecoder().decode(_fixture());
 
+    expect(artifact.matchedBy, RitoLocatorMatch.bookStart);
     expect(artifact.localSpreadIndex, 5);
     expect(artifact.localPageIndexes, <int>[9, 10]);
     expect(artifact.bookPageIndex, 140);

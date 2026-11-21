@@ -59,8 +59,10 @@ const READER_ROOT_FILES = walkTs(READER_ROOT);
 // mode of that line, which turns a vertical line's arrow keys.
 // +23 lines (2026-10-29): a host face registers a variant the engine names
 // with OpenType features (its vertical forms) as a face of its own.
+// +15 lines (2026-11-21): `initialLocatorMatch`, how far the locator the
+// book opened at was followed, `bookStart` when its href named no chapter.
 const SESSION_READER_FILE_BUDGET = 22;
-const SESSION_READER_LINE_BUDGET = 2932;
+const SESSION_READER_LINE_BUDGET = 2947;
 // Exact native interaction, point-granularity and keyboard-movement DTOs stay public
 // without exposing revision-local addresses.
 // +52 lines (2026-10-03): the font catalog types a font picker is built
@@ -84,7 +86,9 @@ const SESSION_READER_LINE_BUDGET = 2932;
 // scrolled reader's windows end to end, and where a located line starts.
 // +14 lines (2026-10-27): `ReaderWritingMode` and a caret's width, the
 // shape of a caret across a vertical line and which way its keys move it.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1042;
+// +17 lines (2026-11-21): `initialLocatorMatch` and the `bookStart` match, a
+// book opened at its start because its saved position named no chapter.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 1059;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];

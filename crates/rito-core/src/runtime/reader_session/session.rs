@@ -173,6 +173,10 @@ pub struct ReaderSession {
     peeked_artifacts: BTreeSet<u64>,
     visible_intent: Option<ReaderVisibleIntent>,
     foreground_candidate: Option<ReaderForegroundCandidate>,
+    /// Whether an artifact request has succeeded: the first one is where
+    /// the session opens, the only request a locator whose href names no
+    /// chapter of the book does not fail (it opens at the book's start).
+    opened: bool,
     // At most one adjacent turn stays retained after `TargetNotPublished`;
     // a newer request with the same source artifact and direction resumes it.
     pending_adjacent: Option<ReaderPendingAdjacent>,

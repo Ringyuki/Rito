@@ -207,6 +207,7 @@ fn locator_match(value: u32) -> Result<ReaderLocatorMatch, ReaderError> {
         2 => Ok(ReaderLocatorMatch::Anchor),
         3 => Ok(ReaderLocatorMatch::Progression),
         4 => Ok(ReaderLocatorMatch::Href),
+        5 => Ok(ReaderLocatorMatch::BookStart),
         value => Err(invalid(format!("unknown locator match: {value}"))),
     }
 }

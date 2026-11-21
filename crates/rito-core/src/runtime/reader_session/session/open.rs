@@ -101,6 +101,7 @@ impl ReaderSession {
             peeked_artifacts: BTreeSet::new(),
             visible_intent: None,
             foreground_candidate: None,
+            opened: false,
             pending_adjacent: None,
             render_ratio: 1.0,
             font_generation: 0,

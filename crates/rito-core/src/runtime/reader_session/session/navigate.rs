@@ -7,7 +7,7 @@
 use crate::{
     layout::LayoutConfig,
     runtime::{
-        RuntimeChapterLocalRevisionRequest, RuntimeCreatedChapterLocalRevision,
+        ReaderLocatorMatch, RuntimeChapterLocalRevisionRequest, RuntimeCreatedChapterLocalRevision,
         RuntimeSourceLocator,
     },
 };
@@ -115,21 +115,27 @@ impl ReaderSession {
         )
     }
 
-    /// An open request's locator is persisted host data: the book file may
-    /// have changed since the position was saved, or the position may have
+    /// A request's locator is persisted host data: the book file may have
+    /// changed since the position was saved, or the position may have
     /// been recorded against content that no longer lays out (a saved
     /// point on a broken-image placeholder's alt run carries the image's
     /// node path, which owns no text). A selector that fails to resolve
     /// degrades to the locator's coarser keys — progression, then the
     /// chapter itself — instead of refusing to open the book; the
-    /// artifact's `matched_by` reports what actually resolved. Href
-    /// failures stay hard: a missing resource is an error the host must
-    /// see, not a place to guess.
+    /// artifact's `matched_by` reports what actually resolved.
+    ///
+    /// An href that names no chapter of this book leaves nothing coarser
+    /// within the book. Once the session has opened, the request fails and
+    /// the reader stays where it is. The request a session opens on
+    /// (`opening`) has no page to stay on: it opens at the book's start,
+    /// matched by `BookStart`, so that the book opens and the host still
+    /// learns that the position it gave was not found.
     pub(super) fn create_revision_artifact_with_locator_fallback(
         &mut self,
         request_id: u64,
         layout: LayoutConfig,
         locator: RuntimeSourceLocator,
+        opening: bool,
     ) -> Result<ReaderArtifact, ReaderError> {
         let mut attempt = locator;
         loop {
@@ -141,18 +147,24 @@ impl ReaderSession {
             if error.kind != ReaderErrorKind::InvalidLocator {
                 return Err(error);
             }
-            if attempt.source_point.is_some()
-                || attempt.source_range.is_some()
-                || attempt.anchor_id.is_some()
-            {
-                attempt.source_point = None;
-                attempt.source_range = None;
-                attempt.anchor_id = None;
-            } else if attempt.progression.is_some() {
-                attempt.progression = None;
-            } else {
+            if let Some(coarser) = coarser_locator(&attempt) {
+                attempt = coarser;
+                continue;
+            }
+            // The href alone failed: it names no chapter (an empty href is
+            // the book's start and always resolves).
+            if !opening || attempt.href.is_empty() {
                 return Err(error);
             }
+            return match self.create_revision_artifact(request_id, layout, book_start()) {
+                Ok(mut artifact) => {
+                    artifact.matched_by = ReaderLocatorMatch::BookStart;
+                    Ok(artifact)
+                }
+                // A book with no chapter to start at: the href's own error says why.
+                Err(start) if start.kind == ReaderErrorKind::InvalidLocator => Err(error),
+                Err(start) => Err(start),
+            };
         }
     }
 
@@ -278,5 +290,37 @@ impl ReaderSession {
         Err(target_not_published(
             "exact locator cannot be published from the completed chapter-local revision",
         ))
+    }
+}
+
+/// `locator` with its finest remaining selectors dropped: a source point,
+/// range or anchor first, then the progression; `None` once only the href
+/// is left.
+fn coarser_locator(locator: &RuntimeSourceLocator) -> Option<RuntimeSourceLocator> {
+    if locator.source_point.is_some()
+        || locator.source_range.is_some()
+        || locator.anchor_id.is_some()
+    {
+        return Some(RuntimeSourceLocator {
+            source_point: None,
+            source_range: None,
+            anchor_id: None,
+            ..locator.clone()
+        });
+    }
+    locator.progression.is_some().then(|| RuntimeSourceLocator {
+        progression: None,
+        ..locator.clone()
+    })
+}
+
+/// The book's start: the empty href, which resolves to its first linear chapter.
+fn book_start() -> RuntimeSourceLocator {
+    RuntimeSourceLocator {
+        href: String::new(),
+        anchor_id: None,
+        source_point: None,
+        source_range: None,
+        progression: None,
     }
 }

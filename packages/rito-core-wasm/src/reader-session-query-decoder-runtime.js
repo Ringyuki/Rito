@@ -32,7 +32,14 @@ const ANNOTATION_LEVELS = [
   'orphaned-href-not-found',
   'orphaned-empty-chapter',
 ];
-const LOCATOR_MATCHES = ['source-range', 'source-point', 'anchor', 'progression', 'href'];
+const LOCATOR_MATCHES = [
+  'source-range',
+  'source-point',
+  'anchor',
+  'progression',
+  'href',
+  'book-start',
+];
 const ORDERS = [-1, 0, 1];
 const SCROLL_AXES = ['down', 'left'];
 

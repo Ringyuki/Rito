@@ -34,8 +34,11 @@ paint domain grows, and a stale decoder misreads the byte stream.
   directly on the previous chapter's final page.
 - **Open locators are treated as persisted data.** A saved source point
   or anchor that no longer resolves degrades to the locator's
-  progression, then to the chapter start; `matchedBy` on the artifact
-  reports what actually resolved. Only an unknown href fails an open.
+  progression, then to the chapter start, and an href that names no
+  chapter of the book opens it at its start; `matchedBy` on the artifact
+  reports what actually resolved, book start (5) when nothing did. An
+  open never fails on its locator. A later `rito_request_artifact` whose
+  href names no chapter does fail, leaving the reader where it is.
 - **Candidates are invisible until adopted.** Every foreground result
   is a candidate; commit it through
   `rito_adopt_foreground_candidate` with the compare-and-swap

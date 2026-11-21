@@ -2,7 +2,21 @@ import 'dart:typed_data';
 
 import 'primitive_models.dart';
 
-enum RitoLocatorMatch { sourceRange, sourcePoint, anchor, progression, href }
+/// The most precise of a locator's selectors that resolved.
+enum RitoLocatorMatch {
+  sourceRange,
+  sourcePoint,
+  anchor,
+  progression,
+  href,
+
+  /// None did: the locator's href names no chapter of the book (a position
+  /// saved against another edition, or written in a form the book does not
+  /// use), and the session opened at the book's start instead. Only the
+  /// artifact a session opens on is ever matched so; a later request whose
+  /// href names no chapter fails, leaving the reader where it is.
+  bookStart,
+}
 
 enum RitoTextProfile { platformStringRuns, positionedGlyphRuns }
 

@@ -1,3 +1,15 @@
+## Unreleased
+
+### A stored position that names no chapter opens the book at its start
+
+The locator a session opens with is treated as persisted data all the way
+down: when its href names no chapter of the book (a position saved against
+another edition, or written in a form the book does not use), the book
+opens at its start instead of failing, and the first artifact's
+`matchedBy` is the new `RitoLocatorMatch.bookStart`. A later
+`requestArtifact` whose href names no chapter still fails, leaving the
+reader on its page. Reader protocol 10.
+
 ## 0.10.0 - 2026-11-05
 
 ### Vertical text set as Chromium sets it

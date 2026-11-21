@@ -9,6 +9,7 @@ import type {
   ReaderDocumentSourceSpan,
   ReaderSourcePosition,
   ReaderLocator,
+  ReaderLocatorMatchedBy,
   ReaderLocatorResolution,
   ReaderMargin,
   ReaderPageReadingAnchor,
@@ -293,7 +294,13 @@ export type ReaderPublication = ArrayBuffer | ReaderShardedPublication;
 export interface ReaderOptions {
   readonly width: number;
   readonly height: number;
-  /** Durable source target for bindings that support locator-first initialization. */
+  /**
+   * Where the book opens, for bindings that support locator-first
+   * initialization. A selector that no longer resolves falls back to the
+   * locator's coarser ones, and an href that names no chapter of the book
+   * opens it at its start: the book always opens, and
+   * `Reader.initialLocatorMatch` says how far the locator was followed.
+   */
   readonly initialLocator?: ReaderLocator | undefined;
   readonly margin?: ReaderMargin;
   readonly spread?: ReaderSpreadMode;
@@ -336,6 +343,14 @@ export interface Reader {
   /** Navigation records of the committed layout, indexed by spread. */
   readonly spreads: readonly Spread[];
   readonly dpr: number;
+  /**
+   * How the book opened against `ReaderOptions.initialLocator`: the most
+   * precise of its selectors that resolved, or `'bookStart'` when its href
+   * named no chapter of this book (a position saved against another
+   * edition, or written in a form the book does not use) and the book
+   * opened at its start instead. `'href'` when no locator was given.
+   */
+  readonly initialLocatorMatch?: ReaderLocatorMatchedBy;
   readonly interactions?: ReaderInteractions;
   /** Atomically project a durable locator; cancellation or supersession resolves `undefined`. */
   navigateToLocator?(

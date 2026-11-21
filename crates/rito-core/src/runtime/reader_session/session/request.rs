@@ -39,7 +39,9 @@ impl ReaderSession {
             request.request_id,
             layout.clone(),
             locator,
+            !self.opened,
         )?;
+        self.opened = true;
         self.install_foreground_candidate(
             request.request_id,
             expected_visible_artifact_id,

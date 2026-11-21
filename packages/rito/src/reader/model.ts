@@ -172,12 +172,14 @@ export interface ReaderLocator {
   readonly progression?: number;
 }
 
+/** The most precise selector that resolved; `'bookStart'`: see `Reader.initialLocatorMatch`. */
 export type ReaderLocatorMatchedBy =
   | 'sourceRange'
   | 'sourcePoint'
   | 'anchor'
   | 'progression'
-  | 'href';
+  | 'href'
+  | 'bookStart';
 
 export type ReaderLocatorResolution =
   | {

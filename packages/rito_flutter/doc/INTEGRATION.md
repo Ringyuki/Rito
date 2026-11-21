@@ -350,7 +350,16 @@ Omit the override for light mode — the authored page paints unmodified.
 - `RitoLocator`: where to open — a required spine `href` plus an
   optional `anchorId`, `sourcePoint`, `sourceRange`, or `progression`.
   The artifact reports which match kind was honored
-  (`RitoLocatorMatch`).
+  (`RitoLocatorMatch`). A stored locator is treated as persisted data:
+  a selector that no longer resolves falls back to the coarser ones,
+  down to the chapter's start, and the locator an `open` is given never
+  fails it. When its href names no chapter of the book (a position
+  saved against another edition, or written in a form the book does not
+  use), the book opens at its start and `session.firstArtifact.artifact
+.matchedBy` is `RitoLocatorMatch.bookStart`: check it to tell the
+  reader, or to find a host that writes hrefs wrongly. A later
+  `requestArtifact` whose href names no chapter fails instead, leaving
+  the reader on its page.
 - `RitoTextProfile.platformStringRuns` is the only profile the painter
   accepts in v1.
 

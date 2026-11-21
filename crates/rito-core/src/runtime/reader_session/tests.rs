@@ -71,9 +71,15 @@ fn a_fragment_without_a_path_is_not_a_start_of_book_locator() {
     let mut session =
         open_test_session(54, multi_chapter_fixture_epub()).expect("reader session opens");
 
+    // A path-less fragment names no chapter: the book opens at its start
+    // all the same, but as a locator that did not match.
+    let opened = session
+        .request_artifact(request(54, 1, "#point-47"))
+        .expect("the book opens");
+    assert_eq!(opened.matched_by, ReaderLocatorMatch::BookStart);
     assert!(
         session
-            .request_artifact(request(54, 1, "#point-47"))
+            .request_artifact(request(54, 2, "#point-47"))
             .is_err(),
         "a path-less fragment names no chapter"
     );
@@ -866,14 +872,47 @@ fn an_open_locator_with_only_a_dead_selector_degrades_to_the_chapter_start() {
 }
 
 #[test]
-fn an_open_locator_with_an_unknown_href_still_fails() {
-    // The fallback ladder stops at the chapter: a missing resource is a
-    // real error the host must see, not a place to guess.
-    let publication = crate::runtime::tests::fixture::image_plates_before_text_fixture_epub();
-    let mut session = open_test_session(143, publication).expect("reader session");
+fn an_open_locator_with_an_unknown_href_opens_at_the_book_start() {
+    // A position saved against another edition of the book, or written in
+    // a form the book does not use, names no chapter: the book still opens,
+    // at its start, and the artifact says nothing in the locator matched.
+    let publication = crate::runtime::tests::fixture::multi_chapter_fixture_epub();
+    let mut reference = open_test_session(143, publication.clone()).expect("reader session");
+    let start = reference
+        .request_artifact(request(143, 1, ""))
+        .expect("the empty href opens the book's start");
+    assert_eq!(start.matched_by, ReaderLocatorMatch::Href);
+    for (session_id, href) in [(144, "missing.xhtml"), (145, "#target")] {
+        let mut session =
+            open_test_session(session_id, publication.clone()).expect("reader session");
+        let mut open = request(session_id, 1, href);
+        open.locator.source_point = Some(ReaderSourcePoint {
+            node_path: vec![0, 0],
+            text_offset: 3,
+        });
+        open.locator.progression = Some(0.5);
+        let artifact = session
+            .request_artifact(open)
+            .expect("the book opens although its position names no chapter");
+        assert_eq!(artifact.matched_by, ReaderLocatorMatch::BookStart, "{href}");
+        assert_eq!(artifact.locator, start.locator, "{href}");
+        assert_eq!(artifact.local_page_index, 0, "{href}");
+    }
+}
+
+#[test]
+fn a_request_after_the_open_with_an_unknown_href_still_fails() {
+    // Once the book has opened the reader has a page to stay on: an href
+    // that names no chapter is an error the host sees, not a jump to the
+    // book's start.
+    let publication = crate::runtime::tests::fixture::multi_chapter_fixture_epub();
+    let mut session = open_test_session(146, publication).expect("reader session");
+    session
+        .request_artifact(request(146, 1, "chapter-2.xhtml"))
+        .expect("the book opens");
     let error = session
-        .request_artifact(request(143, 1, "missing.xhtml"))
-        .expect_err("an unknown href must stay a hard error");
+        .request_artifact(request(146, 2, "missing.xhtml"))
+        .expect_err("an unknown href fails once the book is open");
     assert_eq!(error.kind, ReaderErrorKind::InvalidLocator);
 }
 

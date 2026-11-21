@@ -44,6 +44,11 @@ pub enum ReaderLocatorMatch {
     Anchor,
     Progression,
     Href,
+    /// Nothing in the locator matched: its href names no chapter of this
+    /// book, so the artifact a session opens on is the book's start. Only
+    /// that artifact is ever matched by this; a later request whose href
+    /// names no chapter fails, leaving the reader where it is.
+    BookStart,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

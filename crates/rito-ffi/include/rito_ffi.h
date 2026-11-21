@@ -121,9 +121,10 @@ typedef struct rito_pinned_font_face {
  * a pinned font policy fails closed. An open locator is treated as
  * persisted host data — a source point or anchor that no longer resolves
  * degrades to the locator's progression, then to the chapter itself, and
- * the artifact's matchedBy reports what actually resolved; only an
- * unknown href is terminal. RITO_STATUS_TARGET_NOT_PUBLISHED is terminal
- * and does not retain a session when returned by open.
+ * an href that names no chapter of the book opens it at its start; the
+ * artifact's matchedBy reports what actually resolved (5, book start, for
+ * that last case: nothing did). RITO_STATUS_TARGET_NOT_PUBLISHED is
+ * terminal and does not retain a session when returned by open.
  *
  * On every other failure, artifact_out is empty, error_out owns a UTF-8
  * diagnostic, and no session is registered. Both output descriptors must be

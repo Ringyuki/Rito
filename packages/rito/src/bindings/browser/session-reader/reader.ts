@@ -22,7 +22,7 @@ import { SessionReaderHostFonts } from './host-fonts';
 import { createSessionReaderInteractions } from './interactions';
 import { sessionReaderLayoutConfig, sessionReaderSessionLayout } from './layout-options';
 import { EMPTY_SESSION_READER_LAYOUT_VIEW } from './layout-view';
-import { sessionLocator, sessionReaderNavigationMethods } from './navigation';
+import { readerLocatorMatch, sessionLocator, sessionReaderNavigationMethods } from './navigation';
 import { createSessionReaderPublication } from './publication';
 import { createSessionReaderQueue, wakeSessionReaderQueue } from './queue';
 import { rejectSessionReaderFont } from './rejected-fonts';
@@ -238,6 +238,10 @@ function buildReader(state: SessionReaderState): Reader {
     spreads: { enumerable: true, get: () => state.view.spreads },
     dpr: { enumerable: true, get: () => state.dpr },
     layoutScope: { enumerable: true, get: () => state.view.scope },
+    initialLocatorMatch: {
+      enumerable: true,
+      value: readerLocatorMatch(state.session.initialArtifact.matchedBy),
+    },
   });
   return reader as unknown as Reader;
 }
