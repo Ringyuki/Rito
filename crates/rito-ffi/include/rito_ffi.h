@@ -769,6 +769,109 @@ uint32_t rito_turn_motion_reset(uint64_t motion, rito_owned_buffer *error_out);
 uint32_t rito_turn_motion_state(uint64_t motion, double *state_out,
                                 rito_owned_buffer *error_out);
 
+/*
+ * The page turns of a reader, whatever they look like: when a turn begins,
+ * lands and ends, what a finger, a key or a jump does to a turn on screen,
+ * and a turn waiting for the page it brings in. Called on the host's UI
+ * thread; a host holds a controller by the handle rito_turn_controller_new
+ * gives and frees it with rito_turn_controller_free.
+ *
+ * The host tells it what happens, each time with what it knows of the pages
+ * (pages_now), then takes its actions until rito_turn_controller_take_action
+ * writes kind 0, and answers the question its state names before anything
+ * else: rito_turn_controller_answer_begin (where a turn that cuts in begins)
+ * or rito_turn_controller_answer_lands (whether a release turns the page),
+ * null or -1 for the built-in rule. One start and exactly one end for every
+ * turn; a turn commits on the reader (action land) the moment it is decided,
+ * and the host tells rito_turn_controller_landed how that went.
+ *
+ * Pages (RITO_TURN_CONTROLLER_PAGES_NUMBERS): whether a page lies next and
+ * previous, whether each is in its slot, whether the effect can draw each,
+ * and whether a page lies beyond the one the turn on screen brings in, next
+ * and previous (1/0 each).
+ * Action (RITO_TURN_CONTROLLER_ACTION_NUMBERS): kind (0 none, 1 started,
+ * 2 ended, 3 land, 4 fetch, 5 wait for the effect then tell overdue,
+ * 6 rested: what was left of a turn came to rest), direction (0 next,
+ * 1 previous), an ended turn's outcome (0 committed, 1 cancelled,
+ * 2 interrupted) and whether its picture carries on (1/0), seconds to wait.
+ * State (RITO_TURN_CONTROLLER_STATE_NUMBERS): the turn on screen (0 none,
+ * 1 next, 2 previous), whether anything is on screen, whether a finger
+ * holds the page; the question (0 none; 1 where a turn begins: the
+ * leftover's offset, velocity, leaving 0 none / 1 next / 2 previous,
+ * forward, has incoming; 2 whether a release lands: offset, from, velocity,
+ * width, forward); the frame (present, offset, incoming 0 none / 1 next /
+ * 2 previous, phase 0 held / 1 landing / 2 returning, velocity) and its
+ * touch (present, origin x, y, position x, y, farthest x, y); then the
+ * motion's state as RITO_TURN_MOTION_STATE_NUMBERS lays it out.
+ */
+#define RITO_TURN_CONTROLLER_PAGES_NUMBERS UINT32_C(8)
+#define RITO_TURN_CONTROLLER_ACTION_NUMBERS UINT32_C(5)
+#define RITO_TURN_CONTROLLER_STATE_NUMBERS UINT32_C(40)
+
+uint32_t rito_turn_controller_layouts(uint32_t *layouts_out,
+                                      rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_new(const double *physics,
+                                  uint64_t *controller_out,
+                                  rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_free(uint64_t controller,
+                                   rito_owned_buffer *error_out);
+/* instant: turns land at once (an effect that does not animate). */
+uint32_t rito_turn_controller_configure(uint64_t controller,
+                                        const double *physics, double width,
+                                        uint32_t instant,
+                                        rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_finger_down(uint64_t controller,
+                                          const double *pages_now, double x,
+                                          double y, double at,
+                                          rito_owned_buffer *error_out);
+/* resisted: the host's physics' stretch of travel, NaN for the built-in. */
+uint32_t rito_turn_controller_finger_move(uint64_t controller,
+                                          const double *pages_now, double x,
+                                          double y, double travel,
+                                          double resisted, double at,
+                                          rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_finger_up(uint64_t controller,
+                                        const double *pages_now, double x,
+                                        double y, double travel, double at,
+                                        rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_finger_cancel(uint64_t controller,
+                                            const double *pages_now,
+                                            rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_command(uint64_t controller,
+                                      const double *pages_now,
+                                      uint32_t direction, uint32_t *taken_out,
+                                      rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_play_jump(uint64_t controller,
+                                        const double *pages_now,
+                                        uint32_t direction,
+                                        rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_landed(uint64_t controller,
+                                     const double *pages_now, uint32_t ok,
+                                     rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_pages(uint64_t controller,
+                                    const double *pages_now,
+                                    rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_overdue(uint64_t controller,
+                                      const double *pages_now,
+                                      rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_interrupt(uint64_t controller,
+                                        rito_owned_buffer *error_out);
+/* host_at: x, velocity, done while the host's physics carry the motion. */
+uint32_t rito_turn_controller_step(uint64_t controller,
+                                   const double *pages_now, double seconds,
+                                   const double *host_at,
+                                   rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_answer_begin(uint64_t controller,
+                                           const double *begin,
+                                           rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_answer_lands(uint64_t controller, int32_t lands,
+                                           rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_take_action(uint64_t controller,
+                                          double *action_out,
+                                          rito_owned_buffer *error_out);
+uint32_t rito_turn_controller_state(uint64_t controller, double *state_out,
+                                    rito_owned_buffer *error_out);
+
 #ifdef __cplusplus
 }
 #endif

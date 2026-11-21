@@ -4,10 +4,12 @@
 
 pub(crate) mod paper_turn;
 pub(crate) mod reader_session;
+pub(crate) mod turn_controller;
 pub(crate) mod turn_motion;
 
 pub use paper_turn::RitoPaperTurn;
 pub use reader_session::RitoReaderSession;
+pub use turn_controller::RitoTurnController;
 pub use turn_motion::RitoTurnMotion;
 
 pub const BOUNDARY_NAME: &str = "rito-wasm";

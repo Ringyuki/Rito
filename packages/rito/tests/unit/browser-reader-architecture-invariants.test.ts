@@ -484,13 +484,19 @@ describe('Workspace architecture invariant: one host protocol, everywhere', () =
       ])
       .map((match) => match[1]);
     // The paper page turn's model (2026-10-19); the motion of any page
-    // turn, one for every host (2026-11-21).
-    expect(classes.sort()).toEqual(['RitoPaperTurn', 'RitoReaderSession', 'RitoTurnMotion']);
+    // turn and the page turns of a reader, one for every host (2026-11-21).
+    expect(classes.sort()).toEqual([
+      'RitoPaperTurn',
+      'RitoReaderSession',
+      'RitoTurnController',
+      'RitoTurnMotion',
+    ]);
     expect(readdirSync(crate).sort()).toEqual([
       'lib.rs',
       'paper_turn.rs',
       'reader_session',
       'reader_session.rs',
+      'turn_controller.rs',
       'turn_motion.rs',
     ]);
   });

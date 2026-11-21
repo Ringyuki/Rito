@@ -1,6 +1,7 @@
 mod fonts;
 mod memory;
 mod paper_turn;
+mod turn_controller;
 mod turn_motion;
 
 pub use fonts::{
@@ -26,6 +27,16 @@ pub use paper_turn::{
     rito_paper_turn_new, rito_paper_turn_settle, rito_paper_turn_settle_step,
     rito_paper_turn_sheet, rito_paper_turn_state, rito_paper_turn_travel,
     RITO_PAPER_TURN_BEGUN_NUMBERS, RITO_PAPER_TURN_LAID_NUMBERS, RITO_PAPER_TURN_STATE_NUMBERS,
+};
+pub use turn_controller::{
+    rito_turn_controller_answer_begin, rito_turn_controller_answer_lands,
+    rito_turn_controller_command, rito_turn_controller_configure,
+    rito_turn_controller_finger_cancel, rito_turn_controller_finger_down,
+    rito_turn_controller_finger_move, rito_turn_controller_finger_up, rito_turn_controller_free,
+    rito_turn_controller_interrupt, rito_turn_controller_landed, rito_turn_controller_layouts,
+    rito_turn_controller_new, rito_turn_controller_overdue, rito_turn_controller_pages,
+    rito_turn_controller_play_jump, rito_turn_controller_state, rito_turn_controller_step,
+    rito_turn_controller_take_action,
 };
 pub use turn_motion::{
     rito_turn_motion_cancel, rito_turn_motion_carry_on, rito_turn_motion_configure,
