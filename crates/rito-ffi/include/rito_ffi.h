@@ -685,8 +685,8 @@ uint32_t rito_paper_turn_eye_height(double width, double height,
  * travel (rito_turn_motion_drag with carried 1), whether a release turns
  * the page (lands 0 or 1; -1 for the built-in rule), where a turn that
  * cuts in begins (begin: offset, velocity; null for the built-in rule),
- * and the motion that carries a turn to rest (host_settles 1: the state
- * names each motion to carry on, and each step passes where it is).
+ * and the motion that carries a turn to rest (each step of it passes
+ * host_at, from the first; the state names the motion to start from).
  *
  * Physics (RITO_TURN_MOTION_PHYSICS_NUMBERS): the spring's stiffness and
  * damping, the swipe threshold (px), the velocity that turns the page
@@ -715,7 +715,7 @@ uint32_t rito_turn_motion_new(const double *physics, uint64_t *motion_out,
                               rito_owned_buffer *error_out);
 uint32_t rito_turn_motion_free(uint64_t motion, rito_owned_buffer *error_out);
 uint32_t rito_turn_motion_configure(uint64_t motion, const double *physics,
-                                    double width, uint32_t host_settles,
+                                    double width,
                                     rito_owned_buffer *error_out);
 uint32_t rito_turn_motion_start_drag(uint64_t motion, uint32_t forward,
                                      uint32_t has_incoming, double at,
@@ -736,7 +736,8 @@ uint32_t rito_turn_motion_interrupt(uint64_t motion, double at,
                                     rito_owned_buffer *error_out);
 uint32_t rito_turn_motion_carry_on(uint64_t motion, uint32_t committed,
                                    rito_owned_buffer *error_out);
-/* host_at: x, velocity, done while the host carries the motion, else null. */
+/* host_at: x, velocity, done while the host carries the motion (from its
+ * first step), else null. */
 uint32_t rito_turn_motion_step(uint64_t motion, double seconds,
                                const double *host_at, uint32_t instant,
                                uint32_t *step_out,

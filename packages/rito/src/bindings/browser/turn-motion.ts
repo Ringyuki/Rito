@@ -120,8 +120,8 @@ function motionActionsOf(
   const beginOf = placer();
   const at = new Float64Array(AT_NUMBERS);
   return {
-    configure: (physics, width, hostSettles) => {
-      raw.configure(physicsNumbers(physics), width, hostSettles);
+    configure: (physics, width) => {
+      raw.configure(physicsNumbers(physics), width);
     },
     turn: (forward, place) => {
       raw.turn(forward, beginOf(place));

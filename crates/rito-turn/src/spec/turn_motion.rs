@@ -241,7 +241,6 @@ mod a_turn_that_is_cut_into {
     #[test]
     fn keeps_the_motion_it_was_on_rather_than_starting_one() {
         let mut motion = motion();
-        motion.set_host_settles(true);
         motion.turn(true, None);
         let generation = motion.settle_request().generation;
         step_steady(&mut motion, 0.5);
@@ -372,7 +371,6 @@ fn a_release_the_host_decides_lands_as_it_says() {
 #[test]
 fn a_motion_the_host_carries_moves_the_turn_as_it_says_and_ends_when_it_does() {
     let mut motion = motion();
-    motion.set_host_settles(true);
     motion.turn(true, None);
     let request = motion.settle_request();
     assert_eq!(

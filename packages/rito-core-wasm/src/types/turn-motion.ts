@@ -6,7 +6,7 @@
  * decide, it passes their answer; otherwise the built-in rules do.
  */
 export interface RitoRawTurnMotion {
-  configure(physics: Float64Array, width: number, hostSettles: boolean): void;
+  configure(physics: Float64Array, width: number): void;
   /** `begin`: offset and velocity where the host's physics begin a cut-in turn; empty for the built-in rule. */
   startDrag(forward: boolean, hasIncoming: boolean, at: number, begin: Float64Array): void;
   /** `carried`: `travel` is the turn the host's physics made of the finger's travel. */
@@ -17,7 +17,7 @@ export interface RitoRawTurnMotion {
   turn(forward: boolean, begin: Float64Array): void;
   interrupt(at: number): boolean;
   carryOn(committed: boolean): void;
-  /** `hostAt`: x, velocity, done (1/0) while the host carries the motion, else empty. */
+  /** `hostAt`: x, velocity, done (1/0) while the host carries the motion, from its first step; else empty. */
   step(seconds: number, hostAt: Float64Array, instant: boolean): number;
   finish(): void;
   reset(): void;

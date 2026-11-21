@@ -104,15 +104,12 @@ pub extern "C" fn rito_turn_motion_free(motion: u64, error_out: *mut RitoOwnedBu
     })
 }
 
-/// Sets the built-in rules' numbers, the page width a turn travels, and
-/// whether the host carries each motion that starts from now on (1) or the
-/// spring does (0).
+/// Sets the built-in rules' numbers and the page width a turn travels.
 #[no_mangle]
 pub extern "C" fn rito_turn_motion_configure(
     motion: u64,
     physics: *const f64,
     width: f64,
-    host_settles: u32,
     error_out: *mut RitoOwnedBuffer,
 ) -> u32 {
     invoke(error_out, || {
@@ -120,7 +117,6 @@ pub extern "C" fn rito_turn_motion_configure(
         with(motion, |held| {
             held.set_physics(physics);
             held.set_width(width);
-            held.set_host_settles(host_settles != 0);
         })
     })
 }
@@ -231,9 +227,10 @@ pub extern "C" fn rito_turn_motion_carry_on(
     })
 }
 
-/// Moves the turn on by `seconds`. While the host carries the motion,
-/// `host_at` is where its motion is then (x, velocity, done), else null;
-/// `instant` 1 lands at once. Writes what the step did
+/// Moves the turn on by `seconds`. A host carrying the motion with physics
+/// of its own passes `host_at`, where its motion is then (x, velocity,
+/// done), at every step of it from the first; null at the first leaves it
+/// to the spring. `instant` 1 lands at once. Writes what the step did
 /// (`rito_turn::turn_pack::turn_step_code`).
 #[no_mangle]
 pub extern "C" fn rito_turn_motion_step(

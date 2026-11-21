@@ -73,10 +73,7 @@ function physicsNumbers(opts: TransitionDriverOptions): TurnMotionPhysics {
   };
 }
 
-/**
- * The engine's motion, told the options' numbers, the width and whether
- * the physics carry turns to rest themselves: what it goes by from now on.
- */
+/** The engine's motion, told the options' numbers and the width: what it goes by from now on. */
 export function motionOf(state: TransitionDriverState): TurnMotion {
   if (state.motion === null) {
     const make = loadedTurnMotion();
@@ -85,11 +82,7 @@ export function motionOf(state: TransitionDriverState): TurnMotion {
     }
     state.motion = make(physicsNumbers(state.opts));
   }
-  state.motion.configure(
-    physicsNumbers(state.opts),
-    state.viewportWidth,
-    activePhysics(state)?.settle !== undefined,
-  );
+  state.motion.configure(physicsNumbers(state.opts), state.viewportWidth);
   return state.motion;
 }
 

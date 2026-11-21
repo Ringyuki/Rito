@@ -31,12 +31,10 @@ impl RitoTurnMotion {
         }
     }
 
-    /// The built-in rules' numbers, the page width a turn travels, and
-    /// whether the host carries each motion that starts from now on.
-    pub fn configure(&mut self, physics: &[f64], width: f64, host_settles: bool) {
+    /// The built-in rules' numbers and the page width a turn travels.
+    pub fn configure(&mut self, physics: &[f64], width: f64) {
         self.motion.set_physics(read_turn_physics(physics));
         self.motion.set_width(width);
-        self.motion.set_host_settles(host_settles);
     }
 
     /// A finger takes the turn at `at` ms.
@@ -80,8 +78,9 @@ impl RitoTurnMotion {
     }
 
     /// Moves the turn on by `seconds`; `host_at` is where the host's motion
-    /// is then while it carries one (x, velocity, done), else empty. Says
-    /// what the step did (`rito_turn::turn_pack::turn_step_code`).
+    /// is then while it carries one with physics of its own (x, velocity,
+    /// done), from its first step; empty leaves it to the spring. Says what
+    /// the step did (`rito_turn::turn_pack::turn_step_code`).
     pub fn step(&mut self, seconds: f64, host_at: &[f64], instant: bool) -> u32 {
         let host = (host_at.len() >= TURN_AT_NUMBERS).then(|| read_turn_at(host_at));
         turn_step_code(self.motion.step(seconds, host, instant))

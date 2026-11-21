@@ -79,7 +79,6 @@ fn a_finger_turn_and_a_cut_moves_through_the_abi_as_the_engine_moves_it() {
         motion,
         numbers.as_ptr(),
         390.0,
-        0,
         &mut error,
     ));
     let mut model = TurnMotion::new(physics);
@@ -146,7 +145,6 @@ fn a_motion_the_host_carries_is_read_from_the_host() {
         motion,
         numbers.as_ptr(),
         400.0,
-        1,
         &mut error,
     ));
     ok(rito_turn_motion_turn(motion, 0, ptr::null(), &mut error));
@@ -177,7 +175,6 @@ fn a_motion_the_host_carries_is_read_from_the_host() {
     assert_eq!(step, 2);
     let mut model = TurnMotion::new(physics);
     model.set_width(400.0);
-    model.set_host_settles(true);
     model.turn(false, None);
     model.step(
         0.25,

@@ -12,10 +12,10 @@
 //! pull against the end of the book stretches ([`TurnMotion::drag_carried`]),
 //! whether a release turns the page ([`TurnMotion::release`]), where a turn
 //! that cuts in begins ([`Begin`]), and the motion that carries a turn to
-//! rest ([`TurnMotion::set_host_settles`]).
+//! rest ([`TurnMotion::step`]'s `host`).
 
 use crate::math::clamp;
-use crate::spring::{At, SpringSettle};
+use crate::spring::{At, Spring, SpringSettle};
 use crate::turn_physics::{FingerSamples, TurnPhysics, TurnRelease};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,8 +123,11 @@ pub enum TurnStep {
     Rested,
 }
 
+/// What carries a turn nothing holds: told at its first step, as the host
+/// carries it with physics of its own or leaves it to the spring.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Settle {
+    Untold(Spring),
     Spring(SpringSettle),
     Host,
 }
@@ -134,7 +137,6 @@ enum Settle {
 pub struct TurnMotion {
     physics: TurnPhysics,
     width: f64,
-    host_settles: bool,
     phase: TurnPhase,
     forward: bool,
     has_incoming: bool,
@@ -162,7 +164,6 @@ impl TurnMotion {
         Self {
             physics,
             width: 0.0,
-            host_settles: false,
             phase: TurnPhase::Idle,
             forward: true,
             has_incoming: true,
@@ -202,13 +203,6 @@ impl TurnMotion {
 
     pub fn set_width(&mut self, width: f64) {
         self.width = width;
-    }
-
-    /// Whether the host carries each motion that starts from now on to
-    /// rest with physics of its own (see [`Self::settle_request`]) instead
-    /// of the spring.
-    pub fn set_host_settles(&mut self, host: bool) {
-        self.host_settles = host;
     }
 
     pub fn phase(&self) -> TurnPhase {
@@ -320,8 +314,8 @@ impl TurnMotion {
         })
     }
 
-    /// The motion the host is to carry on, while it carries motions
-    /// ([`Self::set_host_settles`]): the latest one started.
+    /// The latest motion started: what a host carrying it with physics of
+    /// its own starts its own motion from.
     pub fn settle_request(&self) -> SettleRequest {
         self.request
     }
@@ -478,17 +472,29 @@ impl TurnMotion {
         self.phase = TurnPhase::Finishing;
     }
 
-    /// Moves the turn on by `seconds`. While the host carries the motion,
-    /// `host` is where its motion is at [`Self::elapsed`] plus `seconds`;
-    /// `instant` lands at once.
+    /// Moves the turn on by `seconds`. A host that carries the motion with
+    /// physics of its own passes `host`, where its motion is at
+    /// [`Self::elapsed`] plus `seconds`, at every step of it, from the first;
+    /// passed nothing at the first, the spring carries it. `instant` lands at
+    /// once.
     pub fn step(&mut self, seconds: f64, host: Option<At>, instant: bool) -> TurnStep {
-        let Some(settle) = self.settle.filter(|_| self.moving()) else {
+        let Some(mut settle) = self.settle.filter(|_| self.moving()) else {
             return TurnStep::Still;
         };
+        if let Settle::Untold(spring) = settle {
+            let SettleRequest {
+                from, velocity, to, ..
+            } = self.request;
+            settle = match host {
+                Some(_) => Settle::Host,
+                None => Settle::Spring(SpringSettle::new(spring, from, velocity, to)),
+            };
+            self.settle = Some(settle);
+        }
         self.elapsed += seconds;
         let at = match settle {
             Settle::Spring(spring) => Some(spring.at(self.elapsed)),
-            Settle::Host => host,
+            Settle::Host | Settle::Untold(_) => host,
         };
         if let Some(at) = at {
             self.offset = at.x + self.shift;
@@ -580,16 +586,7 @@ impl TurnMotion {
     }
 
     fn start_settle(&mut self, from: f64, to: f64) {
-        self.settle = Some(if self.host_settles {
-            Settle::Host
-        } else {
-            Settle::Spring(SpringSettle::new(
-                self.physics.spring,
-                from,
-                self.velocity,
-                to,
-            ))
-        });
+        self.settle = Some(Settle::Untold(self.physics.spring));
         self.request = SettleRequest {
             generation: self.request.generation + 1,
             from,

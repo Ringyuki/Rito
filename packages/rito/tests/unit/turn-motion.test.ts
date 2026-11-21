@@ -32,9 +32,9 @@ const PHYSICS: TurnMotionPhysics = {
 
 let make: TurnMotionFactory;
 
-function motion(hostSettles = false): TurnMotion {
+function motion(): TurnMotion {
   const made = make(PHYSICS);
-  made.configure(PHYSICS, 400, hostSettles);
+  made.configure(PHYSICS, 400);
   return made;
 }
 
@@ -102,8 +102,8 @@ describe.skipIf(!engineBuilt)('the engine’s turn motion on the page', () => {
     turn.dispose();
   });
 
-  it('is carried by the host’s own motion when it says it carries them', () => {
-    const turn = motion(true);
+  it('is carried by the host’s own motion when it passes where that is', () => {
+    const turn = motion();
     turn.turn(false);
     expect(turn.state.settle).toEqual({ generation: 1, from: 0, velocity: 0, to: 400 });
     expect(turn.step(0.25, { x: 100, velocity: 400, done: false })).toBe('moving');

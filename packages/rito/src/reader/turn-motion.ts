@@ -28,7 +28,8 @@ export type TurnMotionPhase = 'idle' | 'dragging' | 'settling' | 'finishing';
  * next page; velocities px/s (`velocity` is 0 while a finger holds the
  * turn). `leaving` is what the turn it began from left in the frame (`none`
  * for a pull against the end of the book; null when it began at rest).
- * `settle` names the motion the host carries on while it carries them.
+ * `settle` names the latest motion started, which a host carrying it with
+ * physics of its own starts its own from.
  */
 export interface TurnMotionState {
   readonly phase: TurnMotionPhase;
@@ -82,13 +83,13 @@ export interface TurnMotionAt {
  * a turn cut into by another, whose picture carries on (`carryOn`) for the
  * turn that cuts in to begin from. Wherever the built-in rules decide, the
  * host may answer with physics of its own instead: `dragCarried`, the
- * `lands` of `release`, a `begin`, and a motion it carries itself
- * (`configure`'s `hostSettles`, then `step`'s `host`). Times of a finger
- * are ms, a step's seconds.
+ * `lands` of `release`, a `begin`, and a motion it carries itself (`step`'s
+ * `host`, at every step of it from the first; without it the spring carries
+ * the motion). Times of a finger are ms, a step's seconds.
  */
 export interface TurnMotion {
   readonly state: TurnMotionState;
-  configure(physics: TurnMotionPhysics, width: number, hostSettles: boolean): void;
+  configure(physics: TurnMotionPhysics, width: number): void;
   startDrag(forward: boolean, hasIncoming: boolean, at: number, begin?: TurnMotionBegin): void;
   /** Follows a finger that has carried the turn `travel` px; a pull with no neighbour stretches. */
   drag(travel: number, at: number): void;

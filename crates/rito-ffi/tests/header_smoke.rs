@@ -251,7 +251,7 @@ static void consume(void) {
   uint64_t motion = 0;
   (void)rito_turn_motion_layouts(motion_layouts, &error);
   (void)rito_turn_motion_new(motion_physics, &motion, &error);
-  (void)rito_turn_motion_configure(motion, motion_physics, 400, 0, &error);
+  (void)rito_turn_motion_configure(motion, motion_physics, 400, &error);
   (void)rito_turn_motion_start_drag(motion, 1, 1, 0, NULL, &error);
   (void)rito_turn_motion_drag(motion, -40, 16, 0, &error);
   (void)rito_turn_motion_release(motion, -1, &motion_answer, &error);
