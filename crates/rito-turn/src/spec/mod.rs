@@ -10,6 +10,7 @@ mod curled_page;
 mod leaf;
 mod leaves;
 mod physics;
+mod turn_motion;
 
 /// That `actual` is within half a unit in the `digits`-th decimal place of
 /// `expected`: how near the web's tests held a number to another.
