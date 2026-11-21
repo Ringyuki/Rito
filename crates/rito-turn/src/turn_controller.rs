@@ -352,10 +352,12 @@ impl TurnController {
 
     /// A finger came down at `origin` and moved far enough, the way pages
     /// turn, to mean a drag. On a turn on screen it cuts into it, and takes
-    /// the page once that turn is over.
+    /// the page once that turn is over; a turn still waiting for its page
+    /// gives way to it, as to a newer key.
     pub fn finger_down(&mut self, pages: TurnPages, origin: Point, at: f64) {
         self.pages = pages;
         self.answer_pending_with_defaults();
+        self.awaiting = None;
         self.finger = Finger {
             state: FingerState::Holding,
             origin,

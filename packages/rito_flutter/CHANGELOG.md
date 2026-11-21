@@ -24,7 +24,7 @@ engine asks. Where the two readers differed, they now do as follows:
   still makes its turn.
 - Every key pressed while turns land turns a page; a key toward no further
   page leaves the turn on screen alone; a key pressed while a turn waits for
-  its page takes that turn's place.
+  its page takes that turn's place, and so does a finger that comes down.
 
 ### Page turns move by the engine's motion
 

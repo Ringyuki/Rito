@@ -348,6 +348,31 @@ fn a_turn_waits_for_its_page_and_a_newer_key_takes_its_place() {
 }
 
 #[test]
+fn a_finger_takes_the_place_of_a_turn_waiting_for_its_page() {
+    let mut turns = controller();
+    let away = TurnPages {
+        there: Sides {
+            next: true,
+            previous: false,
+        },
+        ..ready()
+    };
+    assert!(turns.command(away, Direction::Previous));
+    assert_eq!(
+        host(&mut turns, true),
+        [TurnAction::Fetch(Direction::Previous)]
+    );
+    turns.finger_down(away, at(300.0), 0.0);
+    turns.finger_move(away, at(250.0), -50.0, None, 16.0);
+    let mut taken = host(&mut turns, true);
+    // The page the key asked for arrives: the finger's turn is the one on screen.
+    turns.pages(ready());
+    taken.extend(host(&mut turns, true));
+    assert_eq!(starts(&taken), [Direction::Next]);
+    assert_eq!(turns.turning(), Some(Direction::Next));
+}
+
+#[test]
 fn a_turn_waits_for_its_effect_only_so_long() {
     let mut turns = controller();
     let undrawable = TurnPages {
