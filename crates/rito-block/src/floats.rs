@@ -134,7 +134,9 @@ impl FloatBands {
         }
         let left_inset = self.left_edge(flow_y);
         let right_inset = (content_width - self.right_edge(flow_y, content_width)).max(0.0);
-        if left_inset + right_inset <= 0.0 || left_inset + right_inset >= content_width {
+        // A full band must reach nested containers too. Their first line
+        // steps below it; dropping it here would let descendants overlap.
+        if left_inset + right_inset <= 0.0 {
             return None;
         }
         Some(rito_fragment::FloatBand {
@@ -142,6 +144,44 @@ impl FloatBands {
             right_inset,
             bottom: bottom - flow_y,
         })
+    }
+
+    /// First block position where a line has positive space within its
+    /// own content span. A completely occupied band is not the absence
+    /// of a float: the line must step below the next expiring float.
+    pub(crate) fn first_line_y(
+        &self,
+        flow_y: f64,
+        left: f64,
+        right: f64,
+        content_width: f64,
+    ) -> f64 {
+        if right <= left {
+            return flow_y;
+        }
+        let mut y = flow_y;
+        loop {
+            let left_edge = self.left_edge(y);
+            let right_edge = self.right_edge(y, content_width);
+            let start = if left_edge > 0.0 {
+                left.max(left_edge)
+            } else {
+                left
+            };
+            let end = if right_edge < content_width {
+                right.min(right_edge)
+            } else {
+                right
+            };
+            if end > start {
+                break;
+            }
+            let Some(next) = self.next_band_edge(y) else {
+                break;
+            };
+            y = next;
+        }
+        y
     }
 
     pub(crate) fn bottom_for(&self, clear: Clear) -> f64 {
